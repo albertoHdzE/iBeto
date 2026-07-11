@@ -13,6 +13,7 @@ class Config:
     base_url: str = "http://localhost:1234/v1"
     model: str = "qwen3.5-4b-instruct-revised"
     temperature: float = 0.7
+    enable_thinking: bool = False  # off = fast replies; toggle at runtime with /think
     system_prompt: str = "assistant"
     history_file: str = "chat_history.json"
     # Voice mode

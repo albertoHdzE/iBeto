@@ -11,6 +11,11 @@ model = "qwen3.5-4b-instruct-revised"
 # Sampling temperature. Lower = more focused, higher = more creative.
 temperature = 0.7
 
+# Reasoning ("thinking") mode. false = fast replies for casual chat;
+# true = the model reasons before answering (slower, better on hard questions).
+# Toggle live in chat: "/think on", "/think off" (or say "think harder" in voice).
+enable_thinking = false
+
 # System prompt file to load from ibeto/prompts/<name>.md
 system_prompt = "assistant"
 

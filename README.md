@@ -12,6 +12,7 @@ your Mac against a local model served by LM Studio — no cloud, no API keys.
 - ✅ Persistent history — resume past conversations (`--resume`)
 - ✅ Voice mode — push-to-talk speech in, spoken reply out (`--voice`)
 - ✅ Vision — `/look` captures a camera frame and asks the model about it
+- ✅ Tunable reasoning — `/think on|off` (off is ~4× faster for casual chat)
 - ✅ System prompt from a Markdown file
 - ✅ Configurable model / URL / temperature via `configs/ibeto.toml`
 - ✅ Optional latency + tokens/sec metrics (`--stats`)
@@ -63,6 +64,18 @@ Requires a vision-language model loaded in LM Studio (the default
 `qwen3.5-4b-instruct-revised` is one). The iPhone works as the camera via
 Continuity; set `camera_index` in `configs/ibeto.toml` if the wrong camera is
 picked. The image is sent for that turn only, not kept in history.
+
+In voice mode, say a phrase like *"look at this, what is it?"* to trigger the
+camera for that turn.
+
+### Reasoning (thinking) mode
+
+`qwen3.5-4b` reasons silently before answering, which is great for hard
+questions but slow for chit-chat (~4× the latency). It defaults to **off**.
+
+- Text: `/think on`, `/think off`, or `/think` to toggle.
+- Voice: say *"think harder"* to enable, *"stop thinking"* to disable.
+- Start with it on: `ibeto --think`. Default lives in `configs/ibeto.toml`.
 
 ```
 iBeto v0.1
