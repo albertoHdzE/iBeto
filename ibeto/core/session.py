@@ -14,11 +14,27 @@ class ConversationSession:
         if history:
             self.messages.extend(history)
 
-    def stream(self, user_text: str) -> Iterator[str]:
-        """Stream the assistant reply for one turn, updating history in place."""
-        self.messages.append({"role": "user", "content": user_text})
+    def stream(self, user_text: str, image: str | None = None) -> Iterator[str]:
+        """Stream the assistant reply for one turn, updating history in place.
+
+        `image` is an optional data URL. It is sent to the model for this turn
+        only, then dropped from stored history so old pixels don't consume the
+        (small) local context window on later turns.
+        """
+        if image:
+            content = [
+                {"type": "text", "text": user_text},
+                {"type": "image_url", "image_url": {"url": image}},
+            ]
+        else:
+            content = user_text
+        self.messages.append({"role": "user", "content": content})
+
         chunks: list[str] = []
         for delta in self.backend.stream(self.messages):
             chunks.append(delta)
             yield delta
+
+        if image:
+            self.messages[-1]["content"] = f"{user_text} [showed an image]"
         self.messages.append({"role": "assistant", "content": "".join(chunks)})

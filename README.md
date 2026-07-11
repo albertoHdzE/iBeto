@@ -11,12 +11,16 @@ your Mac against a local model served by LM Studio — no cloud, no API keys.
 - ✅ Interactive terminal chat with conversation history
 - ✅ Persistent history — resume past conversations (`--resume`)
 - ✅ Voice mode — push-to-talk speech in, spoken reply out (`--voice`)
+- ✅ Vision — `/look` captures a camera frame and asks the model about it
 - ✅ System prompt from a Markdown file
 - ✅ Configurable model / URL / temperature via `configs/ibeto.toml`
 - ✅ Optional latency + tokens/sec metrics (`--stats`)
 
-Deliberately postponed (added later, one capability at a time): vision (iPhone
-camera), tools/automation, semantic long-term memory.
+Runs a single model at a time (tuned for 8 GB RAM): the same loaded
+vision-language model handles both text and images.
+
+Deliberately postponed (added later, one capability at a time):
+tools/automation, semantic long-term memory.
 
 ## Requirements
 
@@ -44,6 +48,22 @@ transcribes with Whisper, replies in the terminal, and speaks the reply aloud.
 Your iPhone 16 Pro works as the mic out of the box via Continuity. First run
 downloads the Whisper model and macOS asks for microphone permission.
 
+### Vision
+
+Type `/look` in a chat to capture a camera frame and ask about it, or
+`/look <question>` for a specific question:
+
+```
+You > /look what is on my desk?
+Looking...
+Assistant > I see a keyboard, a coffee cup, and a notebook...
+```
+
+Requires a vision-language model loaded in LM Studio (the default
+`qwen3.5-4b-instruct-revised` is one). The iPhone works as the camera via
+Continuity; set `camera_index` in `configs/ibeto.toml` if the wrong camera is
+picked. The image is sent for that turn only, not kept in history.
+
 ```
 iBeto v0.1
 Connected to LM Studio  ·  model: qwen3.5-4b-instruct-revised
@@ -67,6 +87,7 @@ ibeto/
   core/session.py    conversation history + streaming (UI-independent)
   cli/               terminal + voice loops
   audio/             stt (Whisper), tts (macOS say), mic (push-to-talk)
+  vision/            camera capture -> base64 for the vision-language model
   memory/            conversation persistence (save/load history)
   config/            TOML config loader
   prompts/           system prompts (Markdown) + loader

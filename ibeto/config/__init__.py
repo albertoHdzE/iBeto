@@ -19,6 +19,8 @@ class Config:
     whisper_model: str = "base"  # base < small < medium < large-v3 (accuracy vs speed)
     tts_voice: str = ""  # macOS `say` voice; empty = system default
     sample_rate: int = 16000  # Whisper expects 16 kHz mono
+    # Vision
+    camera_index: int = 0  # OpenCV camera index (iPhone via Continuity is usually 0 or 1)
 
     def history_path(self) -> Path:
         """Absolute path to the history file (anchored at the project root)."""

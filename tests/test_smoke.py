@@ -65,3 +65,32 @@ def test_tts_empty_text_is_noop():
 
     speak("")  # should not raise
 
+
+def test_frame_to_data_url():
+    import numpy as np
+
+    from ibeto.vision.capture import frame_to_data_url
+
+    frame = np.zeros((4, 4, 3), dtype=np.uint8)
+    url = frame_to_data_url(frame)
+    assert url.startswith("data:image/jpeg;base64,")
+    assert len(url) > len("data:image/jpeg;base64,")
+
+
+def test_session_strips_image_from_history():
+    class FakeBackend:
+        def stream(self, messages):
+            # The live turn must carry the multimodal content.
+            assert isinstance(messages[-1]["content"], list)
+            yield "ok"
+
+    session = ConversationSession(FakeBackend(), system_prompt="sys")
+    reply = "".join(session.stream("what is this?", image="data:image/jpeg;base64,AAAA"))
+
+    assert reply == "ok"
+    assert session.messages[-2] == {
+        "role": "user",
+        "content": "what is this? [showed an image]",
+    }
+    assert session.messages[-1] == {"role": "assistant", "content": "ok"}
+

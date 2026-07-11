@@ -23,3 +23,9 @@ whisper_model = "base"
 # List voices with:  say -v '?'
 tts_voice = ""
 
+# --- Vision (type /look in chat) ---
+# Requires a vision-language model loaded in LM Studio. The default
+# qwen3.5-4b-instruct-revised is a VLM, so no model swap is needed.
+# OpenCV camera index; iPhone via Continuity Camera is usually 0 or 1.
+camera_index = 0
+

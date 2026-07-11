@@ -16,6 +16,8 @@ from ibeto.memory import load_history, save_history
 from ibeto.prompts import load_prompt
 
 EXIT_WORDS = {"exit", "quit", ":q"}
+LOOK_CMD = "/look"
+DEFAULT_LOOK_PROMPT = "What do you see? Describe it briefly."
 
 _CONN_ERROR = (
     "\n\033[91mCannot reach LM Studio.\033[0m\n"
@@ -46,14 +48,16 @@ def _build_session(cfg: Config, resume: bool):
     return backend, session, history
 
 
-def _stream_and_print(session, backend, user_text: str, stats: bool) -> str | None:
+def _stream_and_print(
+    session, backend, user_text: str, stats: bool, image: str | None = None
+) -> str | None:
     """Stream one reply to stdout. Returns the reply text, or None on failure."""
     print("Assistant > ", end="", flush=True)
     started = time.perf_counter()
     first_token_at: float | None = None
     chunks: list[str] = []
     try:
-        for delta in session.stream(user_text):
+        for delta in session.stream(user_text, image=image):
             if first_token_at is None:
                 first_token_at = time.perf_counter()
             print(delta, end="", flush=True)
@@ -67,6 +71,20 @@ def _stream_and_print(session, backend, user_text: str, stats: bool) -> str | No
     return "".join(chunks)
 
 
+def _handle_look(session, backend, user: str, cfg, stats: bool) -> str | None:
+    """Capture a frame and ask the model about it. Returns reply, or None on error."""
+    prompt = user[len(LOOK_CMD):].strip() or DEFAULT_LOOK_PROMPT
+    from ibeto.vision.capture import capture_frame
+
+    print("Looking...", flush=True)
+    try:
+        image = capture_frame(cfg.camera_index)
+    except Exception as exc:  # camera errors are expected/recoverable
+        print(f"\033[91mCamera error: {exc}\033[0m", file=sys.stderr)
+        return ""  # non-None: recoverable, keep the session going
+    return _stream_and_print(session, backend, prompt, stats, image=image)
+
+
 def run(stats: bool = False, resume: bool = False) -> int:
     cfg = load_config()
     backend, session, history = _build_session(cfg, resume)
@@ -75,7 +93,7 @@ def run(stats: bool = False, resume: bool = False) -> int:
     print(f"Connected to LM Studio  ·  model: {cfg.model}")
     if resume and history:
         print(f"Resumed {len(history) // 2} previous exchange(s).")
-    print("Type 'exit' or Ctrl-D to quit.\n")
+    print("Type '/look [question]' to use the camera, 'exit' or Ctrl-D to quit.\n")
 
     try:
         while True:
@@ -89,7 +107,11 @@ def run(stats: bool = False, resume: bool = False) -> int:
             if user.lower() in EXIT_WORDS:
                 print("Bye.")
                 return 0
-            if _stream_and_print(session, backend, user, stats) is None:
+            if user.lower().startswith(LOOK_CMD):
+                result = _handle_look(session, backend, user, cfg, stats)
+            else:
+                result = _stream_and_print(session, backend, user, stats)
+            if result is None:
                 return 1
             print()
     finally:
