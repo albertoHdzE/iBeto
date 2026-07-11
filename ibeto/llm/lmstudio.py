@@ -16,12 +16,16 @@ class LMStudioBackend:
         model: str | None = None,
         temperature: float = 0.7,
         enable_thinking: bool = False,
+        max_tokens: int | None = None,
     ):
         self.client = OpenAI(base_url=base_url, api_key=api_key)
         self._model = model
         self.temperature = temperature
         # Mutable at runtime (e.g. via /think): off = fast replies, on = reasoning.
         self.enable_thinking = enable_thinking
+        # Hard cap on generated tokens: a seatbelt against multi-minute runaways
+        # (some models ignore enable_thinking and reason for thousands of tokens).
+        self.max_tokens = max_tokens
         # Populated after each stream() so callers can report tokens/sec.
         self.last_usage = None
 
@@ -47,6 +51,7 @@ class LMStudioBackend:
             model=self.model,
             messages=messages,
             temperature=self.temperature,
+            max_tokens=self.max_tokens,
             extra_body=self._extra_body(),
         )
         return response.choices[0].message.content
@@ -58,6 +63,7 @@ class LMStudioBackend:
             model=self.model,
             messages=messages,
             temperature=self.temperature,
+            max_tokens=self.max_tokens,
             stream=True,
             stream_options={"include_usage": True},
             extra_body=self._extra_body(),

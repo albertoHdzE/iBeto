@@ -83,6 +83,11 @@ transcribes with Whisper, replies in the terminal, and speaks the reply aloud.
 Your iPhone 16 Pro works as the mic out of the box via Continuity. First run
 downloads the Whisper model and macOS asks for microphone permission.
 
+Speech is transcribed as English by default (`stt_language = "en"`). Auto-detect
+on the small `base` model is unreliable and can mishear English as another
+language — set `stt_language` in `configs/ibeto.toml` (`"es"`, `"de"`, `"ja"`,
+…) to practice another language, or `""` to auto-detect.
+
 ### Vision
 
 Type `/look` in a chat to capture a camera frame and ask about it, or
@@ -111,6 +116,11 @@ questions but slow for chit-chat (~4× the latency). It defaults to **off**.
 - Voice: say *"think harder"* to enable, *"stop thinking"* to disable.
 - Start with it on: `ibeto --think`. Default lives in `configs/ibeto.toml`.
 
+Note: `qwen3.5-4b`'s thinking-off flag is only partly honored — it sometimes
+still reasons at length. `max_tokens` in `configs/ibeto.toml` (default 800)
+hard-caps every reply so nothing ever hangs for minutes. For reliably fast
+replies, prefer a non-reasoning model (see Configuration).
+
 ```
 iBeto v0.1
 Connected to LM Studio  ·  model: qwen3.5-4b-instruct-revised
@@ -127,6 +137,12 @@ in code. Default is `qwen3.5-4b-instruct-revised` (proven safe on an 8 GB M2;
 larger models have frozen it). Only one model loads at a time on 8 GB, so the
 chosen model must be a vision-language model for `/look` to work. System prompts
 live in `ibeto/prompts/*.md`.
+
+**Model choice matters for speed.** `qwen3.5-4b-instruct-revised` is a
+reasoning-heavy model whose thinking-off switch is unreliable, so replies can be
+slow even for casual chat. For a snappier companion, load a non-reasoning
+vision-language model in LM Studio (e.g. `google/gemma-3-4b`, which fits 8 GB and
+still supports `/look`) and set `model` to it here.
 
 ## Layout
 

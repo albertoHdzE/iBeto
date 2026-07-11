@@ -57,6 +57,7 @@ def _build_session(cfg: Config, resume: bool):
         model=cfg.model,
         temperature=cfg.temperature,
         enable_thinking=cfg.enable_thinking,
+        max_tokens=cfg.max_tokens,
     )
     history = load_history(cfg.history_path()) if resume else []
     session = ConversationSession(backend, load_prompt(cfg.system_prompt), history=history)
@@ -178,7 +179,7 @@ def run_voice(stats: bool = False, resume: bool = False, think: bool | None = No
     print("iBeto v0.1 — voice mode")
     print(f"Connected to LM Studio  ·  model: {cfg.model}")
     print(f"Loading Whisper ({cfg.whisper_model})...", flush=True)
-    stt = WhisperSTT(cfg.whisper_model)
+    stt = WhisperSTT(cfg.whisper_model, cfg.stt_language)
     print(f"Thinking: {'ON' if backend.enable_thinking else 'OFF'}")
     if resume and history:
         print(f"Resumed {len(history) // 2} previous exchange(s).")
