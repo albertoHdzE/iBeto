@@ -38,7 +38,41 @@ tools/automation, semantic long-term memory.
 
 Or directly: `uv run ibeto` / `uv run python -m ibeto`.
 
+## Handbook
+
+Two ways to talk to iBeto, and they take commands differently:
+
+- **Text mode** (`ibeto`) — you **type** commands like `/think` and `/look`.
+- **Voice mode** (`ibeto --voice`) — your input is your voice, so you **speak**
+  the commands out loud. Typed `/think` does nothing here.
+
+### Launch flags
+
+| Flag | Effect |
+|------|--------|
+| _(none)_ | Text chat |
+| `--voice` | Push-to-talk voice: speech in, spoken reply out |
+| `--resume` | Continue the previous conversation |
+| `--think` | Start with reasoning mode on (default off) |
+| `--stats` | Show latency (TTFT) and tokens/sec after each reply |
+
+Flags combine, e.g. `ibeto --voice --resume`.
+
+### In-conversation commands
+
+| Goal | Text mode (type) | Voice mode (say) |
+|------|------------------|------------------|
+| Reasoning on | `/think on` (or `/think` to toggle) | "think harder" |
+| Reasoning off | `/think off` | "stop thinking" |
+| Use the camera | `/look` or `/look <question>` | "look at this, what is it?" |
+| Quit | `exit` or Ctrl-D | Ctrl-C |
+
+In voice mode the gesture is: press **Enter** to start recording, speak, press
+**Enter** again to stop. iBeto transcribes, replies on screen, and speaks aloud.
+
 ### Voice mode
+
+
 
 ```bash
 uv run ibeto --voice
@@ -89,8 +123,10 @@ Type `exit` or press Ctrl-D to quit.
 ## Configuration
 
 Everything tunable lives in `configs/ibeto.toml` — change the model there, not
-in code. Default is `qwen3.5-4b-instruct-revised` (proven safe on a 16 GB M2;
-9B+ models have frozen it). System prompts live in `ibeto/prompts/*.md`.
+in code. Default is `qwen3.5-4b-instruct-revised` (proven safe on an 8 GB M2;
+larger models have frozen it). Only one model loads at a time on 8 GB, so the
+chosen model must be a vision-language model for `/look` to work. System prompts
+live in `ibeto/prompts/*.md`.
 
 ## Layout
 
