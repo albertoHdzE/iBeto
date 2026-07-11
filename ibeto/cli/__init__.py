@@ -3,8 +3,11 @@
 Text mode by default; `--voice` enables push-to-talk speech.
 
 Runtime controls (any time, mid-conversation):
-  /think on|off   toggle reasoning mode (text)      · say "think harder" (voice)
-  /look [question] use the camera (text)            · say "look at this" (voice)
+  /think on|off    reasoning mode          · say "think harder" (voice)
+  /look [question] use the camera          · say "look at this" (voice)
+  /model [name]    list or switch model
+In voice mode you can also TYPE any of these at the "[Enter to speak]" prompt
+(or type a message instead of speaking); press Enter alone to record audio.
 """
 
 import argparse
@@ -19,9 +22,10 @@ from ibeto.llm.lmstudio import LMStudioBackend
 from ibeto.memory import load_history, save_history
 from ibeto.prompts import load_prompt
 
-EXIT_WORDS = {"exit", "quit", ":q"}
+EXIT_WORDS = {"exit", "quit", ":q", "/exit", "/quit"}
 LOOK_CMD = "/look"
 THINK_CMD = "/think"
+MODEL_CMD = "/model"
 DEFAULT_LOOK_PROMPT = "What do you see? Describe it briefly."
 
 # Spoken phrases that switch reasoning on/off in voice mode.
@@ -104,6 +108,116 @@ def _set_thinking(backend, on: bool) -> str:
     return f"Thinking mode: {'ON (reasoning)' if on else 'OFF (fast)'}"
 
 
+def _chat_model_ids(backend) -> list[str]:
+    """Downloaded models that can chat (exclude embedding models)."""
+    return [m.id for m in backend.list_models().data if "embed" not in m.id.lower()]
+
+
+def _model_command(arg: str, backend) -> str:
+    """List models (no arg) or switch to one (by index or name substring)."""
+    from ibeto.llm.manager import lms_available, load_model
+
+    ids = _chat_model_ids(backend)
+    if not arg:
+        lines = [
+            f"  {i}. {mid}{'  *' if mid == backend.model else ''}"
+            for i, mid in enumerate(ids)
+        ]
+        return "Models (use /model <number|name>):\n" + "\n".join(lines)
+
+    if arg.isdigit() and int(arg) < len(ids):
+        target = ids[int(arg)]
+    else:
+        matches = [m for m in ids if arg.lower() in m.lower()]
+        if len(matches) > 1:
+            return "Multiple matches: " + ", ".join(matches)
+        if not matches:
+            return f"No model matches '{arg}'."
+        target = matches[0]
+
+    if target == backend.model:
+        return f"Already using {target}."
+    if not lms_available():
+        backend._model = target
+        return f"Model set to {target} (loads on next reply)."
+
+    print(f"Loading {target}... (unloads the current model)", flush=True)
+    try:
+        load_model(target)
+    except Exception as exc:
+        return f"Failed to load {target}: {exc}"
+    backend._model = target
+    return f"Model loaded: {target}"
+
+
+def _handle_slash(text: str, backend, session, cfg, stats: bool, speak=None) -> str:
+    """Handle a /command. Returns: exit | fatal | handled | notcmd."""
+    low = text.lower().strip()
+    cmd = low.split()[0]
+
+    if cmd in EXIT_WORDS:
+        return "exit"
+
+    if cmd == THINK_CMD:
+        arg = low[len(THINK_CMD):].strip()
+        if arg == "on":
+            on = True
+        elif arg == "off":
+            on = False
+        else:
+            on = not backend.enable_thinking
+        msg = _set_thinking(backend, on)
+        print(msg)
+        if speak:
+            speak(msg)
+        return "handled"
+
+    if cmd == MODEL_CMD:
+        msg = _model_command(text[len(MODEL_CMD):].strip(), backend)
+        print(msg)
+        if speak and msg.startswith("Model loaded"):
+            speak("Model switched.")
+        return "handled"
+
+    if cmd == LOOK_CMD:
+        image = _capture_image(cfg)
+        if image is None:
+            return "handled"
+        prompt = text[len(LOOK_CMD):].strip() or DEFAULT_LOOK_PROMPT
+        reply = _stream_and_print(session, backend, prompt, stats, image=image)
+        if reply is None:
+            return "fatal"
+        if speak and reply:
+            speak(reply)
+        return "handled"
+
+    return "notcmd"
+
+
+def _ensure_model_loaded(cfg, backend) -> None:
+    """Load the configured model in LM Studio if it isn't already loaded."""
+    from ibeto.llm.manager import lms_available, loaded_models
+
+    if not lms_available() or backend.model in loaded_models(cfg.base_url):
+        return
+    print(f"Loading {backend.model}... (first launch may take ~15s)", flush=True)
+    try:
+        from ibeto.llm.manager import load_model
+
+        load_model(backend.model)
+    except Exception as exc:
+        print(f"(could not preload model: {exc})", file=sys.stderr)
+
+
+def _startup_banner(cfg, backend, resume, history, extra: str = "") -> None:
+    print(f"Connected to LM Studio  ·  model: {backend.model}")
+    print(f"Thinking: {'ON' if backend.enable_thinking else 'OFF'}")
+    if resume and history:
+        print(f"Resumed {len(history) // 2} previous exchange(s).")
+    if extra:
+        print(extra)
+
+
 def run(stats: bool = False, resume: bool = False, think: bool | None = None) -> int:
     cfg = load_config()
     backend, session, history = _build_session(cfg, resume)
@@ -111,11 +225,9 @@ def run(stats: bool = False, resume: bool = False, think: bool | None = None) ->
         backend.enable_thinking = think
 
     print("iBeto v0.1")
-    print(f"Connected to LM Studio  ·  model: {cfg.model}")
-    print(f"Thinking: {'ON' if backend.enable_thinking else 'OFF'}")
-    if resume and history:
-        print(f"Resumed {len(history) // 2} previous exchange(s).")
-    print("Commands: /look [question] · /think on|off · exit\n")
+    _ensure_model_loaded(cfg, backend)
+    _startup_banner(cfg, backend, resume, history,
+                    "Commands: /look [q] · /think on|off · /model [name] · exit\n")
 
     try:
         while True:
@@ -126,29 +238,18 @@ def run(stats: bool = False, resume: bool = False, think: bool | None = None) ->
                 return 0
             if not user:
                 continue
-            low = user.lower()
-            if low in EXIT_WORDS:
-                print("Bye.")
-                return 0
-            if low.startswith(THINK_CMD):
-                arg = low[len(THINK_CMD):].strip()
-                if arg == "on":
-                    on = True
-                elif arg == "off":
-                    on = False
-                else:
-                    on = not backend.enable_thinking  # bare /think toggles
-                print(_set_thinking(backend, on) + "\n")
+            if user.startswith("/") or user.lower() in EXIT_WORDS:
+                status = _handle_slash(user, backend, session, cfg, stats)
+                if status == "exit":
+                    print("Bye.")
+                    return 0
+                if status == "fatal":
+                    return 1
+                if status == "notcmd":
+                    print("Unknown command. Try /look, /think, /model, or exit.")
+                print()
                 continue
-            if low.startswith(LOOK_CMD):
-                image = _capture_image(cfg)
-                if image is None:
-                    continue
-                prompt = user[len(LOOK_CMD):].strip() or DEFAULT_LOOK_PROMPT
-                result = _stream_and_print(session, backend, prompt, stats, image=image)
-            else:
-                result = _stream_and_print(session, backend, user, stats)
-            if result is None:
+            if _stream_and_print(session, backend, user, stats) is None:
                 return 1
             print()
     finally:
@@ -177,50 +278,67 @@ def run_voice(stats: bool = False, resume: bool = False, think: bool | None = No
     from ibeto.audio.tts import speak
 
     print("iBeto v0.1 — voice mode")
-    print(f"Connected to LM Studio  ·  model: {cfg.model}")
+    _ensure_model_loaded(cfg, backend)
     print(f"Loading Whisper ({cfg.whisper_model})...", flush=True)
     stt = WhisperSTT(cfg.whisper_model, cfg.stt_language)
-    print(f"Thinking: {'ON' if backend.enable_thinking else 'OFF'}")
-    if resume and history:
-        print(f"Resumed {len(history) // 2} previous exchange(s).")
+    _startup_banner(cfg, backend, resume, history)
     print(
-        "Press Enter to start speaking, Enter again to stop. Ctrl-C to quit.\n"
-        'Say "look at this" to use the camera, "think harder" to reason.\n'
+        "Press Enter to speak, Enter again to stop. Ctrl-C to quit.\n"
+        'Say "look at this" / "think harder", or TYPE a command (/model, /think,\n'
+        "/look) or a message at the prompt instead of speaking.\n"
     )
+    say = lambda t: speak(t, cfg.tts_voice)  # noqa: E731
 
     try:
         while True:
             try:
-                input("[Enter to speak] ")
+                typed = input("[Enter to speak] ").strip()
             except (EOFError, KeyboardInterrupt):
                 print("\nBye.")
                 return 0
-            print("Recording... press Enter to stop.", flush=True)
-            audio = record_until_enter(cfg.sample_rate)
-            if audio.size == 0:
-                continue
-            print("Transcribing...", flush=True)
-            user_text = stt.transcribe(audio)
-            if not user_text:
-                print("(heard nothing)\n")
-                continue
-            print(f"You > {user_text}")
 
-            control = _voice_control(user_text, backend)
-            if control is not None:
-                print(control)
-                speak(control, cfg.tts_voice)
-                print()
-                continue
+            spoken = False
+            if typed:
+                if typed.startswith("/") or typed.lower() in EXIT_WORDS:
+                    status = _handle_slash(typed, backend, session, cfg, stats, speak=say)
+                    if status == "exit":
+                        print("Bye.")
+                        return 0
+                    if status == "fatal":
+                        return 1
+                    if status == "notcmd":
+                        print("Unknown command. Try /look, /think, /model, or exit.")
+                    print()
+                    continue
+                user_text = typed  # typed message instead of speaking
+            else:
+                print("Recording... press Enter to stop.", flush=True)
+                audio = record_until_enter(cfg.sample_rate)
+                if audio.size == 0:
+                    continue
+                print("Transcribing...", flush=True)
+                user_text = stt.transcribe(audio)
+                if not user_text:
+                    print("(heard nothing)\n")
+                    continue
+                print(f"You > {user_text}")
+                spoken = True
 
             image = None
-            if any(t in user_text.lower() for t in LOOK_TRIGGERS):
-                image = _capture_image(cfg)
+            if spoken:
+                control = _voice_control(user_text, backend)
+                if control is not None:
+                    print(control)
+                    say(control)
+                    print()
+                    continue
+                if any(t in user_text.lower() for t in LOOK_TRIGGERS):
+                    image = _capture_image(cfg)
 
             reply = _stream_and_print(session, backend, user_text, stats, image=image)
             if reply is None:
                 return 1
-            speak(reply, cfg.tts_voice)
+            say(reply)
             print()
     finally:
         save_history(session.messages, cfg.history_path())
@@ -250,6 +368,5 @@ def main() -> None:
     )
     args = parser.parse_args()
     entry = run_voice if args.voice else run
-    # --think overrides the config default at startup; None = use config.
     think = True if args.think else None
     sys.exit(entry(stats=args.stats, resume=args.resume, think=think))

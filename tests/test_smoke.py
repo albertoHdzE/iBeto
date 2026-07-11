@@ -66,6 +66,43 @@ def test_tts_empty_text_is_noop():
     speak("")  # should not raise
 
 
+def test_model_command_list_resolve_and_filter(monkeypatch):
+    from ibeto.cli import _model_command
+    from ibeto.llm import manager
+
+    class _M:
+        def __init__(self, i):
+            self.id = i
+
+    class FakeBackend:
+        _model = "google/gemma-3-4b"
+
+        @property
+        def model(self):
+            return self._model
+
+        def list_models(self):
+            class R:
+                data = [_M("google/gemma-3-4b"), _M("text-embedding-x"), _M("qwen-4b")]
+
+            return R()
+
+    backend = FakeBackend()
+
+    listing = _model_command("", backend)
+    assert "google/gemma-3-4b" in listing
+    assert "text-embedding-x" not in listing  # embeddings filtered out
+    assert "*" in listing  # current model marked
+
+    assert _model_command("nope", backend).startswith("No model")
+
+    # With lms unavailable, switching just sets the id (JIT loads later).
+    monkeypatch.setattr(manager, "lms_available", lambda: False)
+    msg = _model_command("qwen", backend)
+    assert "qwen-4b" in msg
+    assert backend._model == "qwen-4b"
+
+
 def test_frame_to_data_url():
     import numpy as np
 

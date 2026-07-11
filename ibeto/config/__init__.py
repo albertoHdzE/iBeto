@@ -11,7 +11,7 @@ CONFIG_PATH = PROJECT_ROOT / "configs" / "ibeto.toml"
 @dataclass
 class Config:
     base_url: str = "http://localhost:1234/v1"
-    model: str = "qwen3.5-4b-instruct-revised"
+    model: str = "google/gemma-3-4b"
     temperature: float = 0.7
     enable_thinking: bool = False  # off = fast replies; toggle at runtime with /think
     max_tokens: int = 800  # hard cap on reply length (seatbelt vs runaway generation)

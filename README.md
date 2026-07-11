@@ -12,6 +12,7 @@ your Mac against a local model served by LM Studio — no cloud, no API keys.
 - ✅ Persistent history — resume past conversations (`--resume`)
 - ✅ Voice mode — push-to-talk speech in, spoken reply out (`--voice`)
 - ✅ Vision — `/look` captures a camera frame and asks the model about it
+- ✅ Model switching — `/model` lists/loads models via the `lms` CLI (auto-loads at startup)
 - ✅ Tunable reasoning — `/think on|off` (off is ~4× faster for casual chat)
 - ✅ System prompt from a Markdown file
 - ✅ Configurable model / URL / temperature via `configs/ibeto.toml`
@@ -65,10 +66,20 @@ Flags combine, e.g. `ibeto --voice --resume`.
 | Reasoning on | `/think on` (or `/think` to toggle) | "think harder" |
 | Reasoning off | `/think off` | "stop thinking" |
 | Use the camera | `/look` or `/look <question>` | "look at this, what is it?" |
+| List / switch model | `/model` or `/model gemma` | (type it) |
 | Quit | `exit` or Ctrl-D | Ctrl-C |
 
 In voice mode the gesture is: press **Enter** to start recording, speak, press
 **Enter** again to stop. iBeto transcribes, replies on screen, and speaks aloud.
+You can also **type** any command (or a whole message) at the `[Enter to speak]`
+prompt instead of speaking — press Enter alone to record audio.
+
+### Switching models
+
+`/model` lists your downloaded models (current marked `*`); `/model <number>` or
+`/model <name>` switches. On 8 GB this unloads the current model and loads the
+new one (~15s) via the `lms` CLI. iBeto also auto-loads the configured model at
+startup, so `ibeto` / `ibeto --voice` just works even if nothing is loaded yet.
 
 ### Voice mode
 
