@@ -1,0 +1,15 @@
+# iBeto configuration.
+# The single place to change the backend and model. No code edits needed.
+
+# LM Studio's OpenAI-compatible endpoint.
+base_url = "http://localhost:1234/v1"
+
+# Model id as reported by LM Studio (`curl http://localhost:1234/v1/models`).
+# qwen3.5-4b is proven safe on a 16 GB M2. Larger models (9B+) have frozen it.
+model = "qwen3.5-4b-instruct-revised"
+
+# Sampling temperature. Lower = more focused, higher = more creative.
+temperature = 0.7
+
+# System prompt file to load from ibeto/prompts/<name>.md
+system_prompt = "assistant"
