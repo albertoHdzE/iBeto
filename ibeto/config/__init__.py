@@ -4,7 +4,8 @@ import tomllib
 from dataclasses import dataclass, fields
 from pathlib import Path
 
-CONFIG_PATH = Path(__file__).resolve().parents[2] / "configs" / "ibeto.toml"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+CONFIG_PATH = PROJECT_ROOT / "configs" / "ibeto.toml"
 
 
 @dataclass
@@ -13,6 +14,12 @@ class Config:
     model: str = "qwen3.5-4b-instruct-revised"
     temperature: float = 0.7
     system_prompt: str = "assistant"
+    history_file: str = "chat_history.json"
+
+    def history_path(self) -> Path:
+        """Absolute path to the history file (anchored at the project root)."""
+        p = Path(self.history_file)
+        return p if p.is_absolute() else PROJECT_ROOT / p
 
 
 def load_config(path: Path = CONFIG_PATH) -> Config:

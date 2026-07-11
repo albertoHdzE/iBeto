@@ -8,9 +8,11 @@ from collections.abc import Iterator
 
 
 class ConversationSession:
-    def __init__(self, backend, system_prompt: str):
+    def __init__(self, backend, system_prompt: str, history: list[dict] | None = None):
         self.backend = backend
         self.messages: list[dict] = [{"role": "system", "content": system_prompt}]
+        if history:
+            self.messages.extend(history)
 
     def stream(self, user_text: str) -> Iterator[str]:
         """Stream the assistant reply for one turn, updating history in place."""

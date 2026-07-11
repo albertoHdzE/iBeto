@@ -3,6 +3,7 @@
 from ibeto.config import Config, load_config
 from ibeto.core.session import ConversationSession
 from ibeto.llm.lmstudio import LMStudioBackend
+from ibeto.memory import load_history, save_history
 from ibeto.prompts import load_prompt
 
 
@@ -35,3 +36,24 @@ def test_session_records_history():
     assert session.messages[0] == {"role": "system", "content": "sys"}
     assert session.messages[-2] == {"role": "user", "content": "hello"}
     assert session.messages[-1] == {"role": "assistant", "content": "Hi there"}
+
+
+def test_history_roundtrip_and_resume(tmp_path):
+    path = tmp_path / "chat_history.json"
+    messages = [
+        {"role": "system", "content": "sys"},
+        {"role": "user", "content": "hi"},
+        {"role": "assistant", "content": "hello"},
+    ]
+    save_history(messages, path)
+
+    loaded = load_history(path)
+    assert loaded == messages[1:]  # system prompt excluded
+
+    resumed = ConversationSession(object(), system_prompt="new-sys", history=loaded)
+    assert resumed.messages[0] == {"role": "system", "content": "new-sys"}
+    assert resumed.messages[1:] == loaded
+
+
+def test_load_history_missing_returns_empty(tmp_path):
+    assert load_history(tmp_path / "nope.json") == []

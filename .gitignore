@@ -35,3 +35,6 @@ uv.lock
 
 # Misc
 *.log
+
+# Conversation history
+chat_history.json
