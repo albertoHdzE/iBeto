@@ -15,6 +15,10 @@ class Config:
     temperature: float = 0.7
     system_prompt: str = "assistant"
     history_file: str = "chat_history.json"
+    # Voice mode
+    whisper_model: str = "base"  # base < small < medium < large-v3 (accuracy vs speed)
+    tts_voice: str = ""  # macOS `say` voice; empty = system default
+    sample_rate: int = 16000  # Whisper expects 16 kHz mono
 
     def history_path(self) -> Path:
         """Absolute path to the history file (anchored at the project root)."""

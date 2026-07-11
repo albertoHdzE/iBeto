@@ -13,3 +13,13 @@ temperature = 0.7
 
 # System prompt file to load from ibeto/prompts/<name>.md
 system_prompt = "assistant"
+
+# --- Voice mode (uv run ibeto --voice) ---
+# Whisper model size for speech-to-text: base | small | medium | large-v3
+# Larger = more accurate, slower, bigger download. 'base' is a good start.
+whisper_model = "base"
+
+# macOS `say` voice for text-to-speech. Empty = system default.
+# List voices with:  say -v '?'
+tts_voice = ""
+

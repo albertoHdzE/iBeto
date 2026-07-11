@@ -57,3 +57,11 @@ def test_history_roundtrip_and_resume(tmp_path):
 
 def test_load_history_missing_returns_empty(tmp_path):
     assert load_history(tmp_path / "nope.json") == []
+
+
+def test_tts_empty_text_is_noop():
+    # speak("") must return without spawning `say`.
+    from ibeto.audio.tts import speak
+
+    speak("")  # should not raise
+

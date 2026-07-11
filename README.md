@@ -5,16 +5,18 @@ your Mac against a local model served by LM Studio — no cloud, no API keys.
 
 ## Status
 
-**Phase 1 complete** — a usable streaming text companion:
+**Phase 1 + voice** — a usable streaming companion you can type or talk to:
 
 - ✅ LM Studio backend (`chat` + `stream`)
-- ✅ Interactive terminal chat with in-memory conversation history
-- ✅ System prompt loaded from a Markdown file
+- ✅ Interactive terminal chat with conversation history
+- ✅ Persistent history — resume past conversations (`--resume`)
+- ✅ Voice mode — push-to-talk speech in, spoken reply out (`--voice`)
+- ✅ System prompt from a Markdown file
 - ✅ Configurable model / URL / temperature via `configs/ibeto.toml`
 - ✅ Optional latency + tokens/sec metrics (`--stats`)
 
-Deliberately postponed (added later, one capability at a time): persistent
-memory, voice (Whisper + TTS), vision (iPhone camera), tools/automation.
+Deliberately postponed (added later, one capability at a time): vision (iPhone
+camera), tools/automation, semantic long-term memory.
 
 ## Requirements
 
@@ -30,6 +32,17 @@ memory, voice (Whisper + TTS), vision (iPhone camera), tools/automation.
 ```
 
 Or directly: `uv run ibeto` / `uv run python -m ibeto`.
+
+### Voice mode
+
+```bash
+uv run ibeto --voice
+```
+
+Push-to-talk: press Enter to start speaking, Enter again to stop. iBeto
+transcribes with Whisper, replies in the terminal, and speaks the reply aloud.
+Your iPhone 16 Pro works as the mic out of the box via Continuity. First run
+downloads the Whisper model and macOS asks for microphone permission.
 
 ```
 iBeto v0.1
@@ -52,9 +65,11 @@ in code. Default is `qwen3.5-4b-instruct-revised` (proven safe on a 16 GB M2;
 ibeto/
   llm/lmstudio.py    LM Studio communication only
   core/session.py    conversation history + streaming (UI-independent)
-  cli/               terminal chat loop
+  cli/               terminal + voice loops
+  audio/             stt (Whisper), tts (macOS say), mic (push-to-talk)
+  memory/            conversation persistence (save/load history)
   config/            TOML config loader
   prompts/           system prompts (Markdown) + loader
-configs/ibeto.toml   model / URL / temperature
+configs/ibeto.toml   model / URL / temperature / voice settings
 scripts/             setup.sh, ibeto (launch)
 ```
