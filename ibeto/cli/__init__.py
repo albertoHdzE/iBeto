@@ -295,7 +295,8 @@ def run_voice(stats: bool = False, resume: bool = False, think: bool | None = No
     say = tts.speak  # one-shot utterances (control acks)
     _startup_banner(cfg, backend, resume, history)
     print(
-        "Press Enter to speak, Enter again to stop. Ctrl-C to quit.\n"
+        "Press Enter to speak, Enter again to stop. Ctrl-C stops the reply;\n"
+        "Ctrl-C again at the prompt quits.\n"
         'Say "look at this" / "think harder", or TYPE a command (/model, /think,\n'
         "/look) or a message at the prompt instead of speaking.\n"
     )
@@ -346,9 +347,15 @@ def run_voice(stats: bool = False, resume: bool = False, think: bool | None = No
                 if any(t in user_text.lower() for t in LOOK_TRIGGERS):
                     image = _capture_image(cfg)
 
-            reply = _stream_and_print(
-                session, backend, user_text, stats, image=image, speaker=speaker
-            )
+            try:
+                reply = _stream_and_print(
+                    session, backend, user_text, stats, image=image, speaker=speaker
+                )
+            except KeyboardInterrupt:
+                # Ctrl-C during a spoken reply: stop talking, back to the prompt.
+                speaker.interrupt()
+                print("\n(stopped)")
+                continue
             if reply is None:
                 return 1
             print()

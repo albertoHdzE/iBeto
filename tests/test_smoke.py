@@ -120,6 +120,96 @@ def test_sentence_speaker_handles_multibyte_and_newlines():
     assert spoken == ["¿Qué tal?", "わからない。"]
 
 
+def test_cjk_paragraph_splits_on_full_width_periods():
+    # Regression: CJK has no space after 。 so the old splitter kept the whole
+    # paragraph as one chunk, overflowing Kokoro's phoneme limit (loop/crash).
+    from ibeto.audio.tts import SentenceSpeaker
+
+    spoken: list[str] = []
+
+    class FakeTTS:
+        def speak(self, text):
+            spoken.append(text)
+
+        def close(self):
+            pass
+
+    para = "はい、日本語を話せます。漢字も使えますよ。何か手伝いましょうか。"
+    spk = SentenceSpeaker(FakeTTS())
+    spk.feed(para)
+    spk.finish()
+    spk.close()
+
+    assert spoken == ["はい、日本語を話せます。", "漢字も使えますよ。", "何か手伝いましょうか。"]
+
+
+def test_runon_without_boundary_flushes_at_length_cap():
+    from ibeto.audio.tts import SentenceSpeaker, _MAX_LATIN
+
+    spoken: list[str] = []
+
+    class FakeTTS:
+        def speak(self, text):
+            spoken.append(text)
+
+        def close(self):
+            pass
+
+    spk = SentenceSpeaker(FakeTTS())
+    spk.feed("a" * (_MAX_LATIN + 20))  # no sentence boundary at all
+    spk.finish()
+    spk.close()
+
+    assert len(spoken[0]) == _MAX_LATIN  # capped so the neural model never overflows
+    assert "".join(spoken) == "a" * (_MAX_LATIN + 20)
+
+
+def test_pipeline_speaker_synthesizes_each_sentence(monkeypatch):
+    import pytest
+
+    sd = pytest.importorskip("sounddevice")
+    import numpy as np
+
+    class FakeStream:  # stand-in for sd.OutputStream (no real audio device)
+        def __init__(self, *a, **k):
+            pass
+
+        def start(self):
+            pass
+
+        def write(self, data):
+            pass
+
+        def abort(self):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(sd, "OutputStream", FakeStream)
+
+    synthesized: list[str] = []
+
+    class FakeSynthTTS:  # has synth() -> takes the gapless pipeline path
+        def synth(self, text):
+            synthesized.append(text)
+            return np.zeros(100, dtype=np.float32), 24000
+
+        def close(self):
+            pass
+
+    from ibeto.audio.tts import SentenceSpeaker
+
+    spk = SentenceSpeaker(FakeSynthTTS())
+    assert spk._pipeline is True
+    for d in ["Hello there.", " How are you?", " 你好。"]:
+        spk.feed(d)
+    spk.finish()
+    spk.close()
+
+    assert synthesized == ["Hello there.", "How are you?", "你好。"]
+
+
 def test_model_command_list_resolve_and_filter(monkeypatch):
     from ibeto.cli import _model_command
     from ibeto.llm import manager

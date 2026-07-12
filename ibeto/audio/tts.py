@@ -6,9 +6,11 @@ Each reply is spoken in its own language, routed per sentence by script:
   Japanese-> Kokoro Japanese voice
   else    -> the configured Kokoro voice (Latin default)
 
-Everything is isolated behind an engine with `.speak(text)` plus the streaming
-SentenceSpeaker, so conversation code stays TTS-agnostic. macOS `say` is the
-zero-dependency fallback. Models are fetched once into a cache dir on first use.
+Playback is a two-stage pipeline (synthesize-ahead, then play) so speech flows
+without gaps between sentences, and can be interrupted cleanly. Everything is
+isolated behind an engine (`.synth(text) -> (samples, sr)` / `.speak(text)`) plus
+the streaming SentenceSpeaker, so conversation code stays TTS-agnostic. macOS
+`say` is the zero-dependency fallback. Models are fetched once on first use.
 """
 
 import queue
@@ -120,9 +122,9 @@ class SayTTS:
 
 
 class KokoroTTS:
-    """Neural Kokoro-82M via kokoro-onnx; plays through sounddevice.
+    """Neural Kokoro-82M via kokoro-onnx.
 
-    Covers en/es/fr/hi/it/ja/pt/zh. `speak`/`synth` accept a per-call voice+lang
+    Covers en/es/fr/hi/it/ja/pt/zh. `synth`/`speak` accept a per-call voice+lang
     so one engine serves the configured default plus Chinese and Japanese.
     """
 
@@ -150,10 +152,7 @@ class KokoroTTS:
         self._sd.wait()
 
     def close(self) -> None:
-        try:
-            self._sd.stop()
-        except Exception:
-            pass
+        pass  # streaming playback is owned by SentenceSpeaker's output stream
 
 
 class PiperTTS:
@@ -167,24 +166,26 @@ class PiperTTS:
         onnx, cfg = _ensure_piper(voice_id, Path(model_dir) if model_dir else _default_piper_dir())
         self._v = PiperVoice.load(str(onnx), config_path=str(cfg))
 
-    def speak(self, text: str) -> None:
-        if not text.strip():
-            return
+    def synth(self, text: str):
         chunks = list(self._v.synthesize(text))
         if not chunks:
-            return
+            return None
         sr = chunks[0].sample_rate
         samples = np.concatenate(
             [np.asarray(c.audio_float_array, dtype=np.float32) for c in chunks]
         )
-        self._sd.play(samples, sr)
-        self._sd.wait()
+        return samples, sr
+
+    def speak(self, text: str) -> None:
+        if not text.strip():
+            return
+        audio = self.synth(text)
+        if audio is not None:
+            self._sd.play(*audio)
+            self._sd.wait()
 
     def close(self) -> None:
-        try:
-            self._sd.stop()
-        except Exception:
-            pass
+        pass  # streaming playback is owned by SentenceSpeaker's output stream
 
 
 class MultilingualTTS:
@@ -212,29 +213,35 @@ class MultilingualTTS:
             )
         return self._piper
 
-    def _say_engine(self) -> SayTTS:
-        if self._say is None:
-            self._say = SayTTS("")
-        return self._say
+    def synth(self, text: str):
+        """Return (samples, sr) for `text`, routed by script. None if empty."""
+        if not text.strip():
+            return None
+        lang = detect_lang(text)
+        if lang == "ar":
+            return self._piper_engine().synth(text)
+        if lang == "zh":
+            return self.kokoro.synth(text, voice=getattr(self.cfg, "tts_voice_zh", "zf_xiaobei"),
+                                     lang="cmn")
+        if lang == "ja":
+            return self.kokoro.synth(text, voice=getattr(self.cfg, "tts_voice_ja", "jf_alpha"),
+                                     lang="ja")
+        return self.kokoro.synth(text)
 
     def speak(self, text: str) -> None:
+        """One-shot speak (used for control acks, not the streaming path)."""
         if not text.strip():
             return
-        lang = detect_lang(text)
         try:
-            if lang == "ar":
-                self._piper_engine().speak(text)
-            elif lang == "zh":
-                self.kokoro.speak(text, voice=getattr(self.cfg, "tts_voice_zh", "zf_xiaobei"),
-                                  lang="cmn")
-            elif lang == "ja":
-                self.kokoro.speak(text, voice=getattr(self.cfg, "tts_voice_ja", "jf_alpha"),
-                                  lang="ja")
-            else:
-                self.kokoro.speak(text)
+            audio = self.synth(text)
+            if audio is not None:
+                self.kokoro._sd.play(*audio)
+                self.kokoro._sd.wait()
         except Exception as exc:
-            print(f"(TTS for '{lang}' failed: {exc}; using say)", flush=True)
-            self._say_engine().speak(text)
+            print(f"(TTS failed: {exc}; using say)", flush=True)
+            if self._say is None:
+                self._say = SayTTS("")
+            self._say.speak(text)
 
     def close(self) -> None:
         self.kokoro.close()
@@ -255,57 +262,164 @@ def make_tts(cfg):
 
 # --- streaming --------------------------------------------------------------
 
-# Sentence boundary: end punctuation (Latin + CJK) then optional closing quote,
-# followed by whitespace or end-of-buffer; or one-or-more newlines.
-_SENT_END = re.compile(r'[.!?。！？]+["”\')\]』」]*(?=\s|$)|\n+')
+# Sentence boundaries. CJK enders (。！？) split immediately since CJK uses no
+# trailing space; Latin enders need following whitespace so "3.14"/"e.g." don't
+# split; newlines always split.
+_SENT_END = re.compile(
+    r'[。！？]+[」』）】]*'          # CJK terminators (+ optional CJK close brackets)
+    r'|[.!?]+["”\')\]]*(?=\s|$)'    # Latin terminators before whitespace/end
+    r'|\n+'                          # hard line breaks
+)
+_MAX_LATIN = 180   # backstop chunk cap (chars) for run-on sentences
+_MAX_CJK = 60      # CJK packs more phonemes/char; stay well under Kokoro's ~510 limit
+_CUT_CHARS = " 、，,;；:"
+
+
+def _safe_cut(buf: str, maxc: int) -> int:
+    """Index to cut a boundary-less run-on: last separator within maxc, else maxc."""
+    window = buf[:maxc]
+    for i in range(len(window) - 1, -1, -1):
+        if window[i] in _CUT_CHARS:
+            return i + 1
+    return maxc
 
 
 class SentenceSpeaker:
-    """Speak a streaming reply sentence-by-sentence on a worker thread.
+    """Speak a streaming reply sentence-by-sentence.
 
-    feed() buffers deltas and enqueues each complete sentence as it forms, so
-    synthesis + playback overlap generation. finish() flushes the tail and
-    blocks until everything queued has been spoken.
+    feed() buffers deltas and emits complete sentences (script-aware splitting +
+    a length cap so no chunk exceeds the neural model's phoneme limit). If the
+    engine exposes synth(), a two-stage pipeline synthesizes the next sentence
+    while the current one plays, so speech is gapless; otherwise a single worker
+    calls engine.speak() (the `say` fallback). interrupt() stops immediately.
     """
 
     def __init__(self, tts):
         self.tts = tts
         self._buf = ""
-        self._q: queue.Queue = queue.Queue()
-        self._thread = threading.Thread(target=self._worker, daemon=True)
-        self._thread.start()
+        self._text_q: queue.Queue = queue.Queue()
+        self._pipeline = callable(getattr(tts, "synth", None))
+        self._stop = threading.Event()
+        self._stream = None   # persistent sounddevice OutputStream (pipeline only)
+        self._cur_sr = None
+        if self._pipeline:
+            import sounddevice as sd
+            self._sd = sd
+            self._audio_q: queue.Queue = queue.Queue(maxsize=8)
+            self._synth_t = threading.Thread(target=self._synth_loop, daemon=True)
+            self._play_t = threading.Thread(target=self._play_loop, daemon=True)
+            self._synth_t.start()
+            self._play_t.start()
+        else:
+            self._sd = None
+            self._worker_t = threading.Thread(target=self._say_loop, daemon=True)
+            self._worker_t.start()
 
-    def _worker(self) -> None:
+    # -- worker loops --
+    def _synth_loop(self) -> None:
         while True:
-            item = self._q.get()
-            if item is None:
-                self._q.task_done()
+            text = self._text_q.get()
+            if text is None:
+                self._audio_q.put(None)
+                self._text_q.task_done()
                 return
             try:
-                self.tts.speak(item)
-            except Exception:
-                pass  # never let a TTS hiccup kill the conversation
-            self._q.task_done()
+                if not self._stop.is_set():
+                    audio = self.tts.synth(text)
+                    if audio is not None and not self._stop.is_set():
+                        self._audio_q.put(audio)
+            except Exception as exc:  # never crash on a bad chunk (e.g. phoneme overflow)
+                print(f"\n(TTS skipped a chunk: {exc})", flush=True)
+            self._text_q.task_done()
 
+    def _play_loop(self) -> None:
+        # One persistent output stream: consecutive same-rate sentences are
+        # written back-to-back with no gap (no per-sentence stream reopen).
+        while True:
+            item = self._audio_q.get()
+            if item is None:
+                self._close_stream()
+                self._audio_q.task_done()
+                return
+            samples, sr = item
+            try:
+                if not self._stop.is_set():
+                    if self._stream is None or self._cur_sr != sr:
+                        self._close_stream()
+                        self._stream = self._sd.OutputStream(
+                            samplerate=sr, channels=1, dtype="float32")
+                        self._stream.start()
+                        self._cur_sr = sr
+                    self._stream.write(np.asarray(samples, dtype=np.float32).reshape(-1, 1))
+            except Exception:
+                self._close_stream()  # drop a broken stream; next chunk reopens
+            self._audio_q.task_done()
+
+    def _close_stream(self) -> None:
+        stream, self._stream, self._cur_sr = self._stream, None, None
+        if stream is not None:
+            try:
+                stream.abort()
+                stream.close()
+            except Exception:
+                pass
+
+    def _say_loop(self) -> None:
+        while True:
+            text = self._text_q.get()
+            if text is None:
+                self._text_q.task_done()
+                return
+            try:
+                if not self._stop.is_set():
+                    self.tts.speak(text)
+            except Exception:
+                pass
+            self._text_q.task_done()
+
+    # -- public API --
     def feed(self, delta: str) -> None:
         self._buf += delta
         while True:
             m = _SENT_END.search(self._buf)
-            if not m:
+            cap = _MAX_CJK if detect_lang(self._buf[:32]) in ("zh", "ja") else _MAX_LATIN
+            if m and m.end() <= cap:
+                end = m.end()
+            elif len(self._buf) >= cap:
+                end = _safe_cut(self._buf, cap)  # boundary-less run-on: hard flush
+            else:
                 return
-            sentence = self._buf[: m.end()].strip()
-            self._buf = self._buf[m.end():]
-            if sentence:
-                self._q.put(sentence)
+            seg = self._buf[:end].strip()
+            self._buf = self._buf[end:]
+            if seg:
+                self._text_q.put(seg)
 
     def finish(self) -> None:
-        """Flush the trailing partial sentence and wait for playback to drain."""
+        """Flush the trailing partial sentence and block until playback drains."""
         tail = self._buf.strip()
         self._buf = ""
         if tail:
-            self._q.put(tail)
-        self._q.join()
+            self._text_q.put(tail)
+        self._text_q.join()
+        if self._pipeline:
+            self._audio_q.join()
+
+    def interrupt(self) -> None:
+        """Stop speaking now: drop queued speech and abort current playback."""
+        self._stop.set()
+        for q in (self._text_q, getattr(self, "_audio_q", None)):
+            if q is None:
+                continue
+            try:
+                while True:
+                    q.get_nowait()
+                    q.task_done()
+            except queue.Empty:
+                pass
+        self._close_stream()  # abort current playback immediately
+        self._buf = ""
+        self._stop.clear()
 
     def close(self) -> None:
-        self._q.put(None)
+        self._text_q.put(None)
         self.tts.close()
