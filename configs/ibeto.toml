@@ -39,9 +39,21 @@ whisper_model = "base"
 # Set to "" to auto-detect (less reliable on the 'base' model).
 stt_language = "en"
 
-# macOS `say` voice for text-to-speech. Empty = system default.
-# List voices with:  say -v '?'
-tts_voice = ""
+# Text-to-speech engine: "kokoro" (neural, streams sentence-by-sentence as the
+# reply generates) or "say" (macOS, robotic, zero-dep fallback). Kokoro fetches a
+# ~300 MB model once into ~/.cache/ibeto/kokoro on first voice launch.
+tts_engine = "kokoro"
+
+# Voice. For kokoro: a voice id (British: bf_isabella, bf_emma, bm_george,
+# bm_lewis; US: af_heart, am_michael; also es/fr/ja voices). For engine="say":
+# a macOS voice name (list with:  say -v '?').
+tts_voice = "bf_isabella"
+
+# Kokoro speaking rate (0.5 slow – 2.0 fast). Ignored by engine="say".
+tts_speed = 1.0
+
+# Kokoro model cache dir. Empty = ~/.cache/ibeto/kokoro.
+tts_model_dir = ""
 
 # --- Vision (type /look in chat) ---
 # Requires a vision-language model loaded in LM Studio. The default

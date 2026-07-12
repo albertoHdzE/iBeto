@@ -69,9 +69,13 @@ def _build_session(cfg: Config, resume: bool):
 
 
 def _stream_and_print(
-    session, backend, user_text: str, stats: bool, image: str | None = None
+    session, backend, user_text: str, stats: bool, image: str | None = None, speaker=None
 ) -> str | None:
-    """Stream one reply to stdout. Returns the reply text, or None on failure."""
+    """Stream one reply to stdout. Returns the reply text, or None on failure.
+
+    If `speaker` is given, each delta is also fed to it so complete sentences are
+    spoken aloud as they stream; playback is drained before returning.
+    """
     print("Assistant > ", end="", flush=True)
     started = time.perf_counter()
     first_token_at: float | None = None
@@ -82,10 +86,14 @@ def _stream_and_print(
                 first_token_at = time.perf_counter()
             print(delta, end="", flush=True)
             chunks.append(delta)
+            if speaker:
+                speaker.feed(delta)
     except APIConnectionError:
         print(_CONN_ERROR, file=sys.stderr)
         return None
     print()
+    if speaker:
+        speaker.finish()
     if stats:
         _print_stats(started, first_token_at, backend)
     return "".join(chunks)
@@ -275,19 +283,22 @@ def run_voice(stats: bool = False, resume: bool = False, think: bool | None = No
     # Import audio deps lazily so text mode never loads them.
     from ibeto.audio.mic import record_until_enter
     from ibeto.audio.stt import WhisperSTT
-    from ibeto.audio.tts import speak
+    from ibeto.audio.tts import SentenceSpeaker, make_tts
 
     print("iBeto v0.1 — voice mode")
     _ensure_model_loaded(cfg, backend)
     print(f"Loading Whisper ({cfg.whisper_model})...", flush=True)
     stt = WhisperSTT(cfg.whisper_model, cfg.stt_language)
+    print(f"Voice: {cfg.tts_engine} ({cfg.tts_voice})", flush=True)
+    tts = make_tts(cfg)
+    speaker = SentenceSpeaker(tts)  # speaks each sentence as the reply streams
+    say = tts.speak  # one-shot utterances (control acks)
     _startup_banner(cfg, backend, resume, history)
     print(
         "Press Enter to speak, Enter again to stop. Ctrl-C to quit.\n"
         'Say "look at this" / "think harder", or TYPE a command (/model, /think,\n'
         "/look) or a message at the prompt instead of speaking.\n"
     )
-    say = lambda t: speak(t, cfg.tts_voice)  # noqa: E731
 
     try:
         while True:
@@ -335,12 +346,14 @@ def run_voice(stats: bool = False, resume: bool = False, think: bool | None = No
                 if any(t in user_text.lower() for t in LOOK_TRIGGERS):
                     image = _capture_image(cfg)
 
-            reply = _stream_and_print(session, backend, user_text, stats, image=image)
+            reply = _stream_and_print(
+                session, backend, user_text, stats, image=image, speaker=speaker
+            )
             if reply is None:
                 return 1
-            say(reply)
             print()
     finally:
+        speaker.close()
         save_history(session.messages, cfg.history_path())
 
 

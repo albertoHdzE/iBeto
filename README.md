@@ -95,9 +95,15 @@ uv run ibeto --voice
 ```
 
 Push-to-talk: press Enter to start speaking, Enter again to stop. iBeto
-transcribes with Whisper, replies in the terminal, and speaks the reply aloud.
-Your iPhone 16 Pro works as the mic out of the box via Continuity. First run
-downloads the Whisper model and macOS asks for microphone permission.
+transcribes with Whisper, replies in the terminal, and speaks the reply aloud
+with a **neural Kokoro voice** — sentence-by-sentence *as the reply streams*, so
+it starts talking in ~0.8 s instead of waiting for the whole reply. Your iPhone
+16 Pro works as the mic out of the box via Continuity. First run downloads the
+Whisper model and the ~300 MB Kokoro model, and macOS asks for mic permission.
+
+The voice is set by `tts_engine`/`tts_voice`/`tts_speed` in `configs/ibeto.toml`
+(default British `bf_isabella`). Set `tts_engine = "say"` to fall back to the
+old macOS voice with no model download.
 
 Speech is transcribed as English by default (`stt_language = "en"`). Auto-detect
 on the small `base` model is unreliable and can mishear English as another
@@ -167,7 +173,7 @@ ibeto/
   llm/lmstudio.py    LM Studio communication only
   core/session.py    conversation history + streaming (UI-independent)
   cli/               terminal + voice loops
-  audio/             stt (Whisper), tts (macOS say), mic (push-to-talk)
+  audio/             stt (Whisper), tts (Kokoro neural, streaming), mic (push-to-talk)
   vision/            camera capture -> base64 for the vision-language model
   memory/            conversation persistence (save/load history)
   config/            TOML config loader

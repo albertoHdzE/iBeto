@@ -66,6 +66,49 @@ def test_tts_empty_text_is_noop():
     speak("")  # should not raise
 
 
+def test_sentence_speaker_splits_stream_into_sentences():
+    from ibeto.audio.tts import SentenceSpeaker
+
+    spoken: list[str] = []
+
+    class FakeTTS:
+        def speak(self, text):
+            spoken.append(text)
+
+        def close(self):
+            pass
+
+    spk = SentenceSpeaker(FakeTTS())
+    # Simulate token-by-token streaming with sentences split across deltas.
+    for delta in ["Hello", " Alberto.", " How are", " you today?", " Bye"]:
+        spk.feed(delta)
+    spk.finish()  # flushes the trailing "Bye" (no terminal punctuation)
+    spk.close()
+
+    assert spoken == ["Hello Alberto.", "How are you today?", "Bye"]
+
+
+def test_sentence_speaker_handles_multibyte_and_newlines():
+    from ibeto.audio.tts import SentenceSpeaker
+
+    spoken: list[str] = []
+
+    class FakeTTS:
+        def speak(self, text):
+            spoken.append(text)
+
+        def close(self):
+            pass
+
+    spk = SentenceSpeaker(FakeTTS())
+    spk.feed("¿Qué tal?\n")   # Spanish + newline boundary
+    spk.feed("わからない。")    # Japanese sentence-final 。
+    spk.finish()
+    spk.close()
+
+    assert spoken == ["¿Qué tal?", "わからない。"]
+
+
 def test_model_command_list_resolve_and_filter(monkeypatch):
     from ibeto.cli import _model_command
     from ibeto.llm import manager

@@ -11,16 +11,19 @@ CONFIG_PATH = PROJECT_ROOT / "configs" / "ibeto.toml"
 @dataclass
 class Config:
     base_url: str = "http://localhost:1234/v1"
-    model: str = "google/gemma-3-4b"
+    model: str = "gemma-4-12b-it-mlx"
     temperature: float = 0.7
     enable_thinking: bool = False  # off = fast replies; toggle at runtime with /think
-    max_tokens: int = 800  # hard cap on reply length (seatbelt vs runaway generation)
+    max_tokens: int = 2048  # hard cap on reply length (seatbelt vs runaway generation)
     system_prompt: str = "assistant"
     history_file: str = "chat_history.json"
     # Voice mode
     whisper_model: str = "base"  # base < small < medium < large-v3 (accuracy vs speed)
     stt_language: str = "en"  # force transcription language; "" = auto-detect
-    tts_voice: str = ""  # macOS `say` voice; empty = system default
+    tts_engine: str = "kokoro"  # "kokoro" (neural) | "say" (macOS, robotic fallback)
+    tts_voice: str = "bf_isabella"  # kokoro voice id, or a `say -v` name for engine=say
+    tts_speed: float = 1.0  # kokoro speaking rate (0.5-2.0)
+    tts_model_dir: str = ""  # kokoro cache dir; "" = ~/.cache/ibeto/kokoro
     sample_rate: int = 16000  # Whisper expects 16 kHz mono
     # Vision
     camera_index: int = 0  # OpenCV camera index (iPhone via Continuity is usually 0 or 1)
