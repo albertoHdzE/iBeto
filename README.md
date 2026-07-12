@@ -18,8 +18,9 @@ your Mac against a local model served by LM Studio — no cloud, no API keys.
 - ✅ Configurable model / URL / temperature via `configs/ibeto.toml`
 - ✅ Optional latency + tokens/sec metrics (`--stats`)
 
-Runs a single model at a time (tuned for 8 GB RAM): the same loaded
-vision-language model handles both text and images.
+Runs a single vision-language model that handles both text and images. On the
+Mac Studio (96 GB) larger models are the norm and multiple resident models are
+possible; see `docs/HANDOFF.md`.
 
 Deliberately postponed (added later, one capability at a time):
 tools/automation, semantic long-term memory.
@@ -148,16 +149,16 @@ Type `exit` or press Ctrl-D to quit.
 ## Configuration
 
 Everything tunable lives in `configs/ibeto.toml` — change the model there, not
-in code. Default is `qwen3.5-4b-instruct-revised` (proven safe on an 8 GB M2;
-larger models have frozen it). Only one model loads at a time on 8 GB, so the
-chosen model must be a vision-language model for `/look` to work. System prompts
-live in `ibeto/prompts/*.md`.
+in code. Default is `gemma-4-12b-it-mlx`, a vision-language model chosen by
+measurement (`scripts/bench_*.py`): 15/15 on a hallucination/false-premise
+battery, natural in ES/DE/JA/FR, ~0.53s TTFT and ~99 tok/s with a 256k context.
+The chosen model must be vision-capable for `/look` to work on a single model.
+System prompts live in `ibeto/prompts/*.md`.
 
-**Model choice matters for speed.** `qwen3.5-4b-instruct-revised` is a
-reasoning-heavy model whose thinking-off switch is unreliable, so replies can be
-slow even for casual chat. For a snappier companion, load a non-reasoning
-vision-language model in LM Studio (e.g. `google/gemma-3-4b`, which fits 8 GB and
-still supports `/look`) and set `model` to it here.
+**Switching for harder tasks.** `/model mistral-small-3.2-24b` swaps to a 24B
+VLM live (~6s); the text-only reasoning models (the 27–35B qwen distills,
+llama-3.3-70b) are available too but can't serve `/look`. On the 96 GB Mac
+Studio, model size is no longer the constraint it was on the 8 GB M2.
 
 ## Layout
 

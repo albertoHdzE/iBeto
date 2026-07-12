@@ -5,10 +5,13 @@
 base_url = "http://localhost:1234/v1"
 
 # Model id as reported by LM Studio (`curl http://localhost:1234/v1/models`).
-# gemma-3-4b: fast, non-reasoning, vision-capable (~0.5s replies on 8 GB).
-# Switch live with /model, or set another id here. qwen3.5-4b is available but
-# reasons silently (slow). iBeto loads this model automatically at startup.
-model = "google/gemma-3-4b"
+# gemma-4-12b-it-mlx: vision-capable, natural in ES/DE/JA/FR, and scored 15/15 on
+# the hallucination/false-premise battery (scripts/bench_correctness.py) — matching
+# mistral-small-24b while being faster (TTFT ~0.53s, ~99 tok/s) with a 256k context.
+# Chosen from measurement on the M3 Ultra, not reputation.
+# Switch live with /model (e.g. mistral-small-3.2-24b for harder one-offs).
+# iBeto loads this model automatically at startup.
+model = "gemma-4-12b-it-mlx"
 
 # Sampling temperature. Lower = more focused, higher = more creative.
 temperature = 0.7
@@ -18,10 +21,10 @@ temperature = 0.7
 # Toggle live in chat: "/think on", "/think off" (or say "think harder" in voice).
 enable_thinking = false
 
-# Hard cap on tokens generated per reply. A seatbelt: some models ignore the
-# thinking flag and reason for thousands of tokens (minutes of waiting). At
-# ~22 tok/s, 800 tokens ~= 35s worst case. Raise it if you use heavy reasoning.
-max_tokens = 800
+# Hard cap on tokens generated per reply. A seatbelt against runaway reasoning.
+# gemma-4-12b is non-reasoning and showed no runaway, and the M3 Ultra generates
+# at ~100 tok/s, so this is raised from the 8 GB-era 800. Keep some cap.
+max_tokens = 2048
 
 # System prompt file to load from ibeto/prompts/<name>.md
 system_prompt = "assistant"
@@ -42,7 +45,7 @@ tts_voice = ""
 
 # --- Vision (type /look in chat) ---
 # Requires a vision-language model loaded in LM Studio. The default
-# qwen3.5-4b-instruct-revised is a VLM, so no model swap is needed.
+# gemma-4-12b-it-mlx is a VLM, so no model swap is needed for /look.
 # OpenCV camera index; iPhone via Continuity Camera is usually 0 or 1.
 camera_index = 0
 
