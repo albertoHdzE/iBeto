@@ -105,6 +105,13 @@ The voice is set by `tts_engine`/`tts_voice`/`tts_speed` in `configs/ibeto.toml`
 (default British `bf_isabella`). Set `tts_engine = "say"` to fall back to the
 old macOS voice with no model download.
 
+**Speaks each reply in its own language.** Every sentence is routed by script:
+Chinese and Japanese use Kokoro (`tts_voice_zh`, `tts_voice_ja`); Arabic uses a
+Piper voice (`tts_voice_ar`, auto-downloaded, since Kokoro has no Arabic) — all
+in `configs/ibeto.toml`. Latin-script languages currently share the default
+voice (distinguishing e.g. Spanish from English needs language detection, a
+later step).
+
 Speech is transcribed as English by default (`stt_language = "en"`). Auto-detect
 on the small `base` model is unreliable and can mishear English as another
 language — set `stt_language` in `configs/ibeto.toml` (`"es"`, `"de"`, `"ja"`,
@@ -173,7 +180,7 @@ ibeto/
   llm/lmstudio.py    LM Studio communication only
   core/session.py    conversation history + streaming (UI-independent)
   cli/               terminal + voice loops
-  audio/             stt (Whisper), tts (Kokoro neural, streaming), mic (push-to-talk)
+  audio/             stt (Whisper), tts (Kokoro+Piper, multilingual streaming), mic
   vision/            camera capture -> base64 for the vision-language model
   memory/            conversation persistence (save/load history)
   config/            TOML config loader

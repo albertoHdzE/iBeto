@@ -88,6 +88,17 @@ def test_sentence_speaker_splits_stream_into_sentences():
     assert spoken == ["Hello Alberto.", "How are you today?", "Bye"]
 
 
+def test_detect_lang_routes_by_script():
+    from ibeto.audio.tts import detect_lang
+
+    assert detect_lang("Hello Alberto, how are you?") == "default"
+    assert detect_lang("¿Qué tal? Muy bien.") == "default"       # Latin -> default
+    assert detect_lang("مرحبا يا ألبرتو") == "ar"                 # Arabic block
+    assert detect_lang("你好，阿尔贝托") == "zh"                    # Han, no kana
+    assert detect_lang("こんにちは、日本語です") == "ja"            # kana present -> ja
+    assert detect_lang("Meet 你 at 3pm") == "zh"                  # dominant non-Latin
+
+
 def test_sentence_speaker_handles_multibyte_and_newlines():
     from ibeto.audio.tts import SentenceSpeaker
 

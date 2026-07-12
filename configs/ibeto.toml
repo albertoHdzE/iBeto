@@ -55,6 +55,14 @@ tts_speed = 1.0
 # Kokoro model cache dir. Empty = ~/.cache/ibeto/kokoro.
 tts_model_dir = ""
 
+# Per-language voices. Each reply is routed by its script (Arabic / Chinese /
+# Japanese / else) to the right voice, so it speaks in its own language.
+# Chinese + Japanese use Kokoro; Arabic uses Piper (Kokoro has no Arabic voice).
+tts_voice_zh = "zf_xiaobei"        # Kokoro Mandarin (zf_*/zm_* voices)
+tts_voice_ja = "jf_alpha"          # Kokoro Japanese (jf_*/jm_* voices)
+tts_voice_ar = "ar_JO-kareem-medium"  # Piper voice id (auto-downloaded on first use)
+tts_piper_dir = ""                 # Piper cache dir. Empty = ~/.cache/ibeto/piper
+
 # --- Vision (type /look in chat) ---
 # Requires a vision-language model loaded in LM Studio. The default
 # gemma-4-12b-it-mlx is a VLM, so no model swap is needed for /look.

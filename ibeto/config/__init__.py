@@ -20,10 +20,15 @@ class Config:
     # Voice mode
     whisper_model: str = "base"  # base < small < medium < large-v3 (accuracy vs speed)
     stt_language: str = "en"  # force transcription language; "" = auto-detect
-    tts_engine: str = "kokoro"  # "kokoro" (neural) | "say" (macOS, robotic fallback)
-    tts_voice: str = "bf_isabella"  # kokoro voice id, or a `say -v` name for engine=say
+    tts_engine: str = "kokoro"  # "kokoro" (neural, multilingual) | "say" (robotic fallback)
+    tts_voice: str = "bf_isabella"  # default/Latin voice (kokoro id, or `say -v` name)
     tts_speed: float = 1.0  # kokoro speaking rate (0.5-2.0)
     tts_model_dir: str = ""  # kokoro cache dir; "" = ~/.cache/ibeto/kokoro
+    # Per-language voices: replies are routed by script (see audio/tts.detect_lang).
+    tts_voice_zh: str = "zf_xiaobei"  # kokoro Mandarin voice for Chinese replies
+    tts_voice_ja: str = "jf_alpha"  # kokoro Japanese voice for Japanese replies
+    tts_voice_ar: str = "ar_JO-kareem-medium"  # piper voice for Arabic replies
+    tts_piper_dir: str = ""  # piper cache dir; "" = ~/.cache/ibeto/piper
     sample_rate: int = 16000  # Whisper expects 16 kHz mono
     # Vision
     camera_index: int = 0  # OpenCV camera index (iPhone via Continuity is usually 0 or 1)
