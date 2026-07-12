@@ -24,6 +24,10 @@ vision-language model handles both text and images.
 Deliberately postponed (added later, one capability at a time):
 tools/automation, semantic long-term memory.
 
+> **Moving machines?** `docs/HANDOFF.md` is the full transfer document (state,
+> measurements, constraints, roadmap, acceptance tests) for continuing this
+> project on different hardware.
+
 ## Requirements
 
 - macOS + [uv](https://docs.astral.sh/uv/), Python 3.12
