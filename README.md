@@ -106,11 +106,12 @@ The voice is set by `tts_engine`/`tts_voice`/`tts_speed` in `configs/ibeto.toml`
 old macOS voice with no model download.
 
 **Speaks each reply in its own language.** Every sentence is routed by script:
-Chinese and Japanese use Kokoro (`tts_voice_zh`, `tts_voice_ja`); Arabic uses a
-Piper voice (`tts_voice_ar`, auto-downloaded, since Kokoro has no Arabic) — all
-in `configs/ibeto.toml`. Latin-script languages currently share the default
-voice (distinguishing e.g. Spanish from English needs language detection, a
-later step).
+Chinese uses Kokoro (`tts_voice_zh`); Arabic uses a Piper voice (`tts_voice_ar`,
+auto-downloaded, since Kokoro has no Arabic); Japanese uses a macOS voice
+(`tts_voice_ja`, e.g. Kyoko) because the neural engines can't read kanji. All in
+`configs/ibeto.toml`. Markdown/emoji are stripped before speaking (and the system
+prompt asks for plain text). Latin-script languages currently share the default
+voice (distinguishing e.g. Spanish from English needs language detection, later).
 
 Speech is transcribed as English by default (`stt_language = "en"`). Auto-detect
 on the small `base` model is unreliable and can mishear English as another

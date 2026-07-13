@@ -26,7 +26,7 @@ class Config:
     tts_model_dir: str = ""  # kokoro cache dir; "" = ~/.cache/ibeto/kokoro
     # Per-language voices: replies are routed by script (see audio/tts.detect_lang).
     tts_voice_zh: str = "zf_xiaobei"  # kokoro Mandarin voice for Chinese replies
-    tts_voice_ja: str = "jf_alpha"  # kokoro Japanese voice for Japanese replies
+    tts_voice_ja: str = "Kyoko"  # macOS JA voice (Kokoro/espeak can't read kanji)
     tts_voice_ar: str = "ar_JO-kareem-medium"  # piper voice for Arabic replies
     tts_piper_dir: str = ""  # piper cache dir; "" = ~/.cache/ibeto/piper
     sample_rate: int = 16000  # Whisper expects 16 kHz mono

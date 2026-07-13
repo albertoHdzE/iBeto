@@ -13,11 +13,14 @@ the streaming SentenceSpeaker, so conversation code stays TTS-agnostic. macOS
 `say` is the zero-dependency fallback. Models are fetched once on first use.
 """
 
+import os
 import queue
 import re
 import subprocess
+import tempfile
 import threading
 import urllib.request
+import wave
 from pathlib import Path
 
 import numpy as np
@@ -43,6 +46,34 @@ def speak(text: str, voice: str = "") -> None:
 
 
 # --- language routing -------------------------------------------------------
+
+_MD_LINK = re.compile(r"\[([^\]]+)\]\([^)]+\)")             # [text](url) -> text
+_MD_RULE = re.compile(r"^\s*([-*_])\1{2,}\s*$", re.M)        # --- *** ___ lines
+_MD_HDR = re.compile(r"^\s{0,3}#{1,6}\s*", re.M)             # # headings
+_MD_BULLET = re.compile(r"^\s{0,3}(?:[*\-+]|\d+[.)])\s+", re.M)  # list bullets
+_MD_QUOTE = re.compile(r"^\s{0,3}>\s?", re.M)                # blockquotes
+_MD_MARKS = re.compile(r"\*\*|\*|__|_|~~|`+")               # emphasis / code marks
+_EMOJI = re.compile(
+    "[\U0001f000-\U0001faff\U00002600-\U000027bf\U0001f1e6-\U0001f1ff"
+    "←-⇿⌀-⏿⬀-⯿]"
+)
+
+
+def clean_for_speech(text: str) -> str:
+    """Strip markdown/formatting/emoji so TTS speaks words, not symbols.
+
+    LLMs love bold, headers and bullets; spoken aloud those become "asterisk
+    asterisk", "hash", "dash dash dash". Remove them before synthesis.
+    """
+    t = _MD_LINK.sub(r"\1", text)
+    t = _MD_RULE.sub(" ", t)
+    t = _MD_HDR.sub("", t)
+    t = _MD_BULLET.sub("", t)
+    t = _MD_QUOTE.sub("", t)
+    t = _MD_MARKS.sub("", t)
+    t = _EMOJI.sub("", t)
+    return re.sub(r"[ \t]+", " ", t).strip()
+
 
 def detect_lang(text: str) -> str:
     """Pick a TTS language from the dominant non-Latin script in `text`.
@@ -113,6 +144,43 @@ class SayTTS:
     def __init__(self, voice: str = ""):
         # Kokoro voice ids (bf_/bm_/af_/am_...) are not valid `say` voices.
         self.voice = "" if voice[:3] in ("bf_", "bm_", "af_", "am_") else voice
+
+    def speak(self, text: str) -> None:
+        speak(text, self.voice)
+
+    def close(self) -> None:
+        pass
+
+
+class MacSayTTS:
+    """macOS `say` rendered to samples, for scripts neural engines can't read.
+
+    Apple's Japanese voices (Kyoko, Eddy, ...) read kanji correctly via proper
+    Japanese G2P, which espeak-based Kokoro cannot — it loops on kanji.
+    """
+
+    def __init__(self, voice: str = "Kyoko"):
+        self.voice = voice
+
+    def synth(self, text: str):
+        if not text.strip():
+            return None
+        fd, path = tempfile.mkstemp(suffix=".wav")
+        os.close(fd)
+        try:
+            subprocess.run(
+                ["say", "-v", self.voice, "-o", path, "--data-format=LEI16@22050", text],
+                check=False,
+            )
+            with wave.open(path, "rb") as w:
+                sr = w.getframerate()
+                pcm = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
+            return pcm.astype(np.float32) / 32768.0, sr
+        finally:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
 
     def speak(self, text: str) -> None:
         speak(text, self.voice)
@@ -203,6 +271,7 @@ class MultilingualTTS:
             model_dir=getattr(cfg, "tts_model_dir", "") or "",
         )
         self._piper: PiperTTS | None = None
+        self._ja: MacSayTTS | None = None
         self._say: SayTTS | None = None
 
     def _piper_engine(self) -> PiperTTS:
@@ -213,6 +282,12 @@ class MultilingualTTS:
             )
         return self._piper
 
+    def _ja_engine(self) -> MacSayTTS:
+        # Kokoro/espeak can't read kanji (it loops); Apple's JA voice reads it.
+        if self._ja is None:
+            self._ja = MacSayTTS(getattr(self.cfg, "tts_voice_ja", "Kyoko"))
+        return self._ja
+
     def synth(self, text: str):
         """Return (samples, sr) for `text`, routed by script. None if empty."""
         if not text.strip():
@@ -220,12 +295,11 @@ class MultilingualTTS:
         lang = detect_lang(text)
         if lang == "ar":
             return self._piper_engine().synth(text)
+        if lang == "ja":
+            return self._ja_engine().synth(text)
         if lang == "zh":
             return self.kokoro.synth(text, voice=getattr(self.cfg, "tts_voice_zh", "zf_xiaobei"),
                                      lang="cmn")
-        if lang == "ja":
-            return self.kokoro.synth(text, voice=getattr(self.cfg, "tts_voice_ja", "jf_alpha"),
-                                     lang="ja")
         return self.kokoro.synth(text)
 
     def speak(self, text: str) -> None:
@@ -266,9 +340,9 @@ def make_tts(cfg):
 # trailing space; Latin enders need following whitespace so "3.14"/"e.g." don't
 # split; newlines always split.
 _SENT_END = re.compile(
-    r'[。！？]+[」』）】]*'          # CJK terminators (+ optional CJK close brackets)
-    r'|[.!?]+["”\')\]]*(?=\s|$)'    # Latin terminators before whitespace/end
-    r'|\n+'                          # hard line breaks
+    r'[。！？]+[」』）】"”\'\*_~`]*'         # CJK terminators + optional close/markdown
+    r'|[.!?]+["”\')\]\*_~`]*(?=\s|$)'       # Latin terminators + markdown, before ws/end
+    r'|\n+'                                  # hard line breaks
 )
 _MAX_LATIN = 180   # backstop chunk cap (chars) for run-on sentences
 _MAX_CJK = 60      # CJK packs more phonemes/char; stay well under Kokoro's ~510 limit
@@ -389,7 +463,7 @@ class SentenceSpeaker:
                 end = _safe_cut(self._buf, cap)  # boundary-less run-on: hard flush
             else:
                 return
-            seg = self._buf[:end].strip()
+            seg = clean_for_speech(self._buf[:end])  # drop markdown/emoji symbols
             self._buf = self._buf[end:]
             if seg:
                 self._text_q.put(seg)

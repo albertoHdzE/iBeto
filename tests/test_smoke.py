@@ -88,6 +88,39 @@ def test_sentence_speaker_splits_stream_into_sentences():
     assert spoken == ["Hello Alberto.", "How are you today?", "Bye"]
 
 
+def test_clean_for_speech_strips_markdown_and_emoji():
+    from ibeto.audio.tts import clean_for_speech
+
+    assert clean_for_speech("**お元気ですか？**") == "お元気ですか？"
+    assert clean_for_speech("### How to say it:") == "How to say it:"
+    assert clean_for_speech("*   **Genki:** it is *nice*") == "Genki: it is nice"
+    assert clean_for_speech("Hello Alberto! 😊") == "Hello Alberto!"
+    assert clean_for_speech("---") == ""          # a rule line becomes nothing
+    assert clean_for_speech("see [the docs](http://x.com)") == "see the docs"
+
+
+def test_sentence_speaker_drops_symbol_only_chunks():
+    from ibeto.audio.tts import SentenceSpeaker
+
+    spoken: list[str] = []
+
+    class FakeTTS:
+        def speak(self, text):
+            spoken.append(text)
+
+        def close(self):
+            pass
+
+    spk = SentenceSpeaker(FakeTTS())
+    spk.feed("**Bold.** ")   # markdown emphasis around a sentence
+    spk.feed("---\n")        # a horizontal rule -> nothing to say
+    spk.feed("Plain text.")
+    spk.finish()
+    spk.close()
+
+    assert spoken == ["Bold.", "Plain text."]
+
+
 def test_detect_lang_routes_by_script():
     from ibeto.audio.tts import detect_lang
 

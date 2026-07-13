@@ -59,7 +59,8 @@ tts_model_dir = ""
 # Japanese / else) to the right voice, so it speaks in its own language.
 # Chinese + Japanese use Kokoro; Arabic uses Piper (Kokoro has no Arabic voice).
 tts_voice_zh = "zf_xiaobei"        # Kokoro Mandarin (zf_*/zm_* voices)
-tts_voice_ja = "jf_alpha"          # Kokoro Japanese (jf_*/jm_* voices)
+tts_voice_ja = "Kyoko"             # macOS JA voice (Eddy/Kyoko/...); neural engines
+                                   # can't read kanji, so Japanese uses Apple's voice
 tts_voice_ar = "ar_JO-kareem-medium"  # Piper voice id (auto-downloaded on first use)
 tts_piper_dir = ""                 # Piper cache dir. Empty = ~/.cache/ibeto/piper
 
