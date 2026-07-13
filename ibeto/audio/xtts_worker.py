@@ -33,8 +33,15 @@ def main() -> None:
             continue
         try:
             req = json.loads(line)
-            wav = model.tts(text=req["text"], language=req["lang"],
-                            speaker=req.get("speaker", "Claribel Dervla"))
+            wav = model.tts(
+                text=req["text"], language=req["lang"],
+                speaker=req.get("speaker", "Claribel Dervla"),
+                # We already split text into chunks, so stop XTTS re-splitting
+                # (a cause of its trailing echo), and penalize repetition — this
+                # removes the echo XTTS adds on short phrases (esp. Japanese).
+                split_sentences=False,
+                repetition_penalty=10.0,
+            )
             pcm = (np.clip(np.asarray(wav, dtype=np.float32), -1, 1) * 32767).astype(np.int16)
             fd, path = tempfile.mkstemp(suffix=".wav")
             os.close(fd)
