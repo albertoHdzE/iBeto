@@ -20,8 +20,11 @@ class Config:
     # Voice mode
     whisper_model: str = "base"  # base < small < medium < large-v3 (accuracy vs speed)
     stt_language: str = "en"  # force transcription language; "" = auto-detect
-    tts_engine: str = "kokoro"  # "kokoro" (neural, multilingual) | "say" (robotic fallback)
-    tts_voice: str = "bf_isabella"  # default/Latin voice (kokoro id, or `say -v` name)
+    # "xtts" = one neural voice for every language (needs the `xtts` extra);
+    # "kokoro" = fast native per-language voices; "say" = robotic macOS fallback.
+    tts_engine: str = "xtts"
+    tts_xtts_speaker: str = "Claribel Dervla"  # XTTS built-in speaker (the one voice)
+    tts_voice: str = "bf_isabella"  # kokoro engine: default/Latin voice (or `say -v` name)
     tts_speed: float = 1.0  # kokoro speaking rate (0.5-2.0)
     tts_model_dir: str = ""  # kokoro cache dir; "" = ~/.cache/ibeto/kokoro
     # Per-language voices: replies are routed by script (see audio/tts.detect_lang).

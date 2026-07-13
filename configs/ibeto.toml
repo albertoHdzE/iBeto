@@ -39,10 +39,18 @@ whisper_model = "base"
 # Set to "" to auto-detect (less reliable on the 'base' model).
 stt_language = "en"
 
-# Text-to-speech engine: "kokoro" (neural, streams sentence-by-sentence as the
-# reply generates) or "say" (macOS, robotic, zero-dep fallback). Kokoro fetches a
-# ~300 MB model once into ~/.cache/ibeto/kokoro on first voice launch.
-tts_engine = "kokoro"
+# Text-to-speech engine:
+#   "xtts"   = ONE natural neural voice for every language (en/de/fr/es/it/pt/
+#              ja/zh/ar). Most consistent/natural. Needs the xtts extra
+#              (./scripts/setup.sh installs it) and ~1.8 GB model, ~17s to load.
+#   "kokoro" = fast native per-language voices (different voice per language,
+#              ~0.15 RTF, no torch). Good if you want snappy turn-taking.
+#   "say"    = robotic macOS voice, zero deps (last-resort fallback).
+tts_engine = "xtts"
+
+# The single XTTS voice (built-in speaker). Try: Claribel Dervla, Ana Florence,
+# Damien Black, Viktor Menelaos, Daisy Studious. Only used when tts_engine="xtts".
+tts_xtts_speaker = "Claribel Dervla"
 
 # Voice. For kokoro: a voice id (British: bf_isabella, bf_emma, bm_george,
 # bm_lewis; US: af_heart, am_michael; also es/fr/ja voices). For engine="say":

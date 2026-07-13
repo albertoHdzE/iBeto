@@ -15,6 +15,7 @@ SentenceSpeaker owns splitting, playback, resampling and interruption. macOS
 `say` is the zero-dependency fallback. Models are fetched once on first use.
 """
 
+import json
 import os
 import queue
 import re
@@ -332,6 +333,74 @@ class PiperTTS:
         pass
 
 
+_XTTS_LANG = {"en": "en", "de": "de", "fr": "fr", "es": "es", "it": "it",
+              "pt": "pt", "ja": "ja", "zh": "zh-cn", "ar": "ar"}
+# XTTS runs in its own env (coqui-tts pins numpy<2, incompatible with the app).
+_XTTS_DEPS = ["coqui-tts>=0.24.0", "torch>=2.1", "torchaudio>=2.1",
+              "transformers==4.46.3", "cutlet>=0.4", "unidic-lite>=1.0",
+              "pypinyin>=0.53", "click", "spacy"]
+
+
+class XttsTTS:
+    """One neural voice (XTTS-v2) for every language — the same speaker across
+    en/de/fr/es/it/pt/ja/zh/ar. Runs as an isolated `uv run --no-project` worker
+    (ibeto/audio/xtts_worker.py) and talks to it over stdio, so its numpy<2
+    dependency never collides with the app's numpy>=2."""
+
+    def __init__(self, speaker: str = "Claribel Dervla", ready_timeout: float = 300.0):
+        import time
+        self.speaker = speaker
+        worker = Path(__file__).with_name("xtts_worker.py")
+        cmd = ["uv", "run", "--no-project"]
+        for dep in _XTTS_DEPS:
+            cmd += ["--with", dep]
+        cmd += ["python", str(worker)]
+        print("Loading XTTS-v2 (one voice, all languages; first launch can take "
+              "a minute to build its env + ~17s to load)...", flush=True)
+        self._proc = subprocess.Popen(
+            cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL, text=True, bufsize=1)
+        deadline = time.time() + ready_timeout
+        while True:
+            line = self._proc.stdout.readline()
+            if not line:
+                raise RuntimeError("XTTS worker exited before becoming ready")
+            if line.strip() == "READY":
+                break
+            if time.time() > deadline:
+                raise RuntimeError("XTTS worker timed out while loading")
+
+    def synth_lang(self, text: str, lang: str):
+        if not text.strip():
+            return None
+        req = {"text": text, "lang": _XTTS_LANG.get(lang, "en"), "speaker": self.speaker}
+        try:
+            self._proc.stdin.write(json.dumps(req) + "\n")
+            self._proc.stdin.flush()
+            resp = self._proc.stdout.readline().strip()
+            if not resp.startswith("OK "):
+                return None
+            path = resp[3:]
+            with wave.open(path, "rb") as w:
+                sr = w.getframerate()
+                pcm = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+            return pcm.astype(np.float32) / 32768.0, sr
+        except Exception as exc:
+            print(f"\n(XTTS '{lang}' skipped: {exc})", flush=True)
+            return None
+
+    def close(self) -> None:
+        try:
+            self._proc.stdin.close()
+            self._proc.terminate()
+        except Exception:
+            pass
+
+
 class MultilingualTTS:
     """Synthesize a chunk in a given language with the right native engine.
 
@@ -392,9 +461,20 @@ class MultilingualTTS:
 
 
 def make_tts(cfg):
-    """Build the TTS engine from config, falling back to `say` on any failure."""
-    if getattr(cfg, "tts_engine", "kokoro") == "say":
+    """Build the TTS engine from config, falling back gracefully.
+
+    xtts   -> one voice for all languages (needs the `xtts` extra)
+    kokoro -> fast native per-language voices (default fallback)
+    say    -> robotic macOS voice (last resort)
+    """
+    engine = getattr(cfg, "tts_engine", "xtts")
+    if engine == "say":
         return SayTTS(cfg.tts_voice)
+    if engine == "xtts":
+        try:
+            return XttsTTS(getattr(cfg, "tts_xtts_speaker", "") or "Claribel Dervla")
+        except Exception as exc:
+            print(f"(XTTS unavailable: {exc}; using fast per-language voices)", flush=True)
     try:
         return MultilingualTTS(cfg)
     except Exception as exc:

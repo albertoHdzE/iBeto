@@ -101,21 +101,24 @@ it starts talking in ~0.8 s instead of waiting for the whole reply. Your iPhone
 16 Pro works as the mic out of the box via Continuity. First run downloads the
 Whisper model and the ~300 MB Kokoro model, and macOS asks for mic permission.
 
-The voice is set by `tts_engine`/`tts_voice`/`tts_speed` in `configs/ibeto.toml`
-(default British `bf_isabella`). Set `tts_engine = "say"` to fall back to the
-old macOS voice with no model download.
+The voice engine is set by `tts_engine` in `configs/ibeto.toml`:
 
-**Speaks each reply in its own language, in one flowing voice stream.** Every
-sentence is cleaned of markdown/emoji, split into script runs, and Latin runs are
-language-detected (via `lingua`) so English, German, French, Spanish, Italian and
-Portuguese each get a native voice — not just the English one. Routing:
+- **`xtts` (default)** — one natural neural voice (XTTS-v2) for **every** language
+  (en/de/fr/es/it/pt/ja/zh/ar): the same speaker throughout, most consistent. It
+  runs in an isolated `uv run --no-project` worker (`ibeto/audio/xtts_worker.py`)
+  because coqui-tts pins `numpy<2` while the app needs `numpy>=2`. `setup.sh`
+  pre-builds it (torch + ~1.8 GB model); first voice load is ~17 s. Pick the
+  speaker with `tts_xtts_speaker`.
+- **`kokoro`** — fast native per-language voices (~0.15 RTF, no torch), a
+  *different* voice per language. Snappier turn-taking; set this if XTTS feels slow.
+- **`say`** — robotic macOS voice, zero deps (last resort).
 
-- en/es/fr/it/pt/zh → Kokoro (`tts_voice`, `tts_voice_es/fr/it/pt/zh`)
-- de/ar → Piper (`tts_voice_de`, `tts_voice_ar`, auto-downloaded)
-- ja → macOS voice (`tts_voice_ja`, e.g. Kyoko) — neural engines can't read kanji
-
-All chunks are resampled to one 24 kHz output stream, so switching languages
-mid-reply is seamless. Voices are set in `configs/ibeto.toml`.
+**How a reply is spoken (both neural engines).** Each sentence is cleaned of
+markdown/emoji, split into script runs, and Latin runs are language-detected (via
+`lingua`, biased toward English so cognates aren't mispronounced). Each chunk is
+resampled to one 24 kHz stream so switching languages mid-reply is seamless.
+Under `kokoro` the routing uses per-language voices (`tts_voice`,
+`tts_voice_es/fr/it/pt/zh/de/ar/ja`); under `xtts` the same voice speaks them all.
 
 Limit: a foreign phrase *glued* into an English clause with no punctuation (e.g.
 "you say Ich liebe dich") is voiced in the dominant language — telling apart
