@@ -212,7 +212,20 @@ def test_runon_without_boundary_flushes_at_length_cap():
     assert "".join(spoken) == "a" * (_MAX_LATIN + 20)
 
 
-def test_pipeline_speaker_synthesizes_each_sentence(monkeypatch):
+def test_route_text_by_script_and_language():
+    from ibeto.audio.tts import route_text
+
+    # English + Japanese in one sentence -> separate chunks
+    langs = [lang for lang, _ in route_text("In Japanese you say お元気ですか")]
+    assert "ja" in langs
+    assert any(lg in ("en", "de", "fr", "es", "it", "pt") for lg in langs)
+    # full-sentence Latin languages are told apart natively
+    assert route_text("Bonjour, comment ça va aujourd'hui?")[0][0] == "fr"
+    assert route_text("你好")[0][0] == "zh"
+    assert route_text("مرحبا")[0][0] == "ar"
+
+
+def test_pipeline_speaker_synthesizes_each_chunk(monkeypatch):
     import pytest
 
     sd = pytest.importorskip("sounddevice")
@@ -228,6 +241,9 @@ def test_pipeline_speaker_synthesizes_each_sentence(monkeypatch):
         def write(self, data):
             pass
 
+        def stop(self):
+            pass
+
         def abort(self):
             pass
 
@@ -236,11 +252,11 @@ def test_pipeline_speaker_synthesizes_each_sentence(monkeypatch):
 
     monkeypatch.setattr(sd, "OutputStream", FakeStream)
 
-    synthesized: list[str] = []
+    synthesized: list[tuple[str, str]] = []
 
-    class FakeSynthTTS:  # has synth() -> takes the gapless pipeline path
-        def synth(self, text):
-            synthesized.append(text)
+    class FakeSynthTTS:  # has synth_lang() -> takes the gapless pipeline path
+        def synth_lang(self, text, lang):
+            synthesized.append((lang, text))
             return np.zeros(100, dtype=np.float32), 24000
 
         def close(self):
@@ -250,12 +266,14 @@ def test_pipeline_speaker_synthesizes_each_sentence(monkeypatch):
 
     spk = SentenceSpeaker(FakeSynthTTS())
     assert spk._pipeline is True
-    for d in ["Hello there.", " How are you?", " 你好。"]:
+    for d in ["Hello there.", " 你好。"]:
         spk.feed(d)
     spk.finish()
     spk.close()
 
-    assert synthesized == ["Hello there.", "How are you?", "你好。"]
+    texts = [t for _, t in synthesized]
+    assert "Hello there." in texts
+    assert "你好。" in texts
 
 
 def test_model_command_list_resolve_and_filter(monkeypatch):

@@ -28,6 +28,11 @@ class Config:
     tts_voice_zh: str = "zf_xiaobei"  # kokoro Mandarin voice for Chinese replies
     tts_voice_ja: str = "Kyoko"  # macOS JA voice (Kokoro/espeak can't read kanji)
     tts_voice_ar: str = "ar_JO-kareem-medium"  # piper voice for Arabic replies
+    tts_voice_de: str = "de_DE-thorsten-medium"  # piper voice for German (Kokoro lacks de)
+    tts_voice_es: str = "ef_dora"  # kokoro Spanish voice
+    tts_voice_fr: str = "ff_siwis"  # kokoro French voice
+    tts_voice_it: str = "if_sara"  # kokoro Italian voice
+    tts_voice_pt: str = "pf_dora"  # kokoro Portuguese voice
     tts_piper_dir: str = ""  # piper cache dir; "" = ~/.cache/ibeto/piper
     sample_rate: int = 16000  # Whisper expects 16 kHz mono
     # Vision

@@ -15,7 +15,8 @@ dependencies = [
     "numpy>=2.0.0",
     "opencv-python>=4.10.0",
     "kokoro-onnx>=0.4.0",  # neural streaming TTS (no torch); voice mode only
-    "piper-tts>=1.2.0",  # neural TTS for languages Kokoro lacks (e.g. Arabic)
+    "piper-tts>=1.2.0",  # neural TTS for languages Kokoro lacks (e.g. Arabic, German)
+    "lingua-language-detector>=2.0.0",  # tell Latin languages apart (de/fr/es/it/pt/en)
 ]
 
 [project.scripts]

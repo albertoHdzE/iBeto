@@ -58,10 +58,17 @@ tts_model_dir = ""
 # Per-language voices. Each reply is routed by its script (Arabic / Chinese /
 # Japanese / else) to the right voice, so it speaks in its own language.
 # Chinese + Japanese use Kokoro; Arabic uses Piper (Kokoro has no Arabic voice).
+# Latin-script languages (en/de/fr/es/it/pt) are told apart by language
+# detection (lingua); each is spoken in a native voice. Non-Latin by script.
 tts_voice_zh = "zf_xiaobei"        # Kokoro Mandarin (zf_*/zm_* voices)
 tts_voice_ja = "Kyoko"             # macOS JA voice (Eddy/Kyoko/...); neural engines
                                    # can't read kanji, so Japanese uses Apple's voice
 tts_voice_ar = "ar_JO-kareem-medium"  # Piper voice id (auto-downloaded on first use)
+tts_voice_de = "de_DE-thorsten-medium"  # Piper German (Kokoro has no German)
+tts_voice_es = "ef_dora"           # Kokoro Spanish
+tts_voice_fr = "ff_siwis"          # Kokoro French
+tts_voice_it = "if_sara"           # Kokoro Italian
+tts_voice_pt = "pf_dora"           # Kokoro Portuguese
 tts_piper_dir = ""                 # Piper cache dir. Empty = ~/.cache/ibeto/piper
 
 # --- Vision (type /look in chat) ---

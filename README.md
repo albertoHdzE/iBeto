@@ -105,13 +105,22 @@ The voice is set by `tts_engine`/`tts_voice`/`tts_speed` in `configs/ibeto.toml`
 (default British `bf_isabella`). Set `tts_engine = "say"` to fall back to the
 old macOS voice with no model download.
 
-**Speaks each reply in its own language.** Every sentence is routed by script:
-Chinese uses Kokoro (`tts_voice_zh`); Arabic uses a Piper voice (`tts_voice_ar`,
-auto-downloaded, since Kokoro has no Arabic); Japanese uses a macOS voice
-(`tts_voice_ja`, e.g. Kyoko) because the neural engines can't read kanji. All in
-`configs/ibeto.toml`. Markdown/emoji are stripped before speaking (and the system
-prompt asks for plain text). Latin-script languages currently share the default
-voice (distinguishing e.g. Spanish from English needs language detection, later).
+**Speaks each reply in its own language, in one flowing voice stream.** Every
+sentence is cleaned of markdown/emoji, split into script runs, and Latin runs are
+language-detected (via `lingua`) so English, German, French, Spanish, Italian and
+Portuguese each get a native voice — not just the English one. Routing:
+
+- en/es/fr/it/pt/zh → Kokoro (`tts_voice`, `tts_voice_es/fr/it/pt/zh`)
+- de/ar → Piper (`tts_voice_de`, `tts_voice_ar`, auto-downloaded)
+- ja → macOS voice (`tts_voice_ja`, e.g. Kyoko) — neural engines can't read kanji
+
+All chunks are resampled to one 24 kHz output stream, so switching languages
+mid-reply is seamless. Voices are set in `configs/ibeto.toml`.
+
+Limit: a foreign phrase *glued* into an English clause with no punctuation (e.g.
+"you say Ich liebe dich") is voiced in the dominant language — telling apart
+same-alphabet languages at the word level is a detection limit, not an engine
+one. Full foreign sentences and comma/quote-set-off phrases route correctly.
 
 Speech is transcribed as English by default (`stt_language = "en"`). Auto-detect
 on the small `base` model is unreliable and can mishear English as another
