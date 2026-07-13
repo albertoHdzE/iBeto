@@ -101,6 +101,41 @@ def detect_lang(text: str) -> str:
     return "default"
 
 
+def _script_class(ch: str) -> str:
+    o = ord(ch)
+    if 0x3040 <= o <= 0x30FF or 0x3400 <= o <= 0x9FFF:
+        return "cjk"
+    if (0x0600 <= o <= 0x06FF or 0x0750 <= o <= 0x077F or 0x08A0 <= o <= 0x08FF
+            or 0xFB50 <= o <= 0xFDFF or 0xFE70 <= o <= 0xFEFF):
+        return "arab"
+    if ch.isalpha():
+        return "latin"
+    return "neutral"  # spaces, digits, punctuation attach to the current run
+
+
+def split_by_script(text: str) -> list[str]:
+    """Split into consecutive runs of one script so a mixed sentence is voiced
+    per language, e.g. 'In Japanese you say お元気ですか' -> English run + JA run.
+    """
+    runs: list[str] = []
+    cls = None
+    cur: list[str] = []
+    for ch in text:
+        c = _script_class(ch)
+        if c == "neutral" or c == cls:
+            cur.append(ch)
+        elif cls is None:
+            cls = c
+            cur.append(ch)
+        else:
+            runs.append("".join(cur))
+            cur = [ch]
+            cls = c
+    if cur:
+        runs.append("".join(cur))
+    return [r for r in runs if r.strip()]
+
+
 # --- engines ----------------------------------------------------------------
 
 def _default_model_dir() -> Path:
@@ -465,8 +500,8 @@ class SentenceSpeaker:
                 return
             seg = clean_for_speech(self._buf[:end])  # drop markdown/emoji symbols
             self._buf = self._buf[end:]
-            if seg:
-                self._text_q.put(seg)
+            for run in split_by_script(seg):  # voice each language run separately
+                self._text_q.put(run)
 
     def finish(self) -> None:
         """Flush the trailing partial sentence and block until playback drains."""

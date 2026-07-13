@@ -99,6 +99,21 @@ def test_clean_for_speech_strips_markdown_and_emoji():
     assert clean_for_speech("see [the docs](http://x.com)") == "see the docs"
 
 
+def test_split_by_script_separates_language_runs():
+    from ibeto.audio.tts import detect_lang, split_by_script
+
+    assert split_by_script("Hello Alberto") == ["Hello Alberto"]
+    # English + Japanese in one sentence -> two runs, voiced separately
+    runs = split_by_script("In Japanese you say お元気ですか?")
+    assert runs == ["In Japanese you say ", "お元気ですか?"]
+    assert [detect_lang(r) for r in runs] == ["default", "ja"]
+    # kanji stays with its kana run (not mis-split as Chinese)
+    assert split_by_script("それは 元気 です") == ["それは 元気 です"]
+    # Arabic embedded in English
+    runs = split_by_script("It means مرحبا in Arabic")
+    assert [detect_lang(r) for r in runs] == ["default", "ar", "default"]
+
+
 def test_sentence_speaker_drops_symbol_only_chunks():
     from ibeto.audio.tts import SentenceSpeaker
 
