@@ -288,7 +288,7 @@ def run_voice(stats: bool = False, resume: bool = False, think: bool | None = No
     print("iBeto v0.1 — voice mode")
     _ensure_model_loaded(cfg, backend)
     print(f"Loading Whisper ({cfg.whisper_model})...", flush=True)
-    stt = WhisperSTT(cfg.whisper_model, cfg.stt_language)
+    stt = WhisperSTT(cfg.whisper_model, cfg.stt_language, cfg.whisper_threads)
     tts = make_tts(cfg)
     # Show the engine actually built, not the config (make_tts may fall back).
     voice_desc = getattr(tts, "speaker", None) or cfg.tts_voice

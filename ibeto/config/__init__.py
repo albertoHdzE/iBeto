@@ -18,8 +18,9 @@ class Config:
     system_prompt: str = "assistant"
     history_file: str = "chat_history.json"
     # Voice mode
-    whisper_model: str = "base"  # base < small < medium < large-v3 (accuracy vs speed)
-    stt_language: str = "en"  # force transcription language; "" = auto-detect
+    whisper_model: str = "large-v3-turbo"  # multilingual STT; "base"/"medium" are faster
+    stt_language: str = ""  # "" = auto-detect the spoken language; or force "en"/"ja"/...
+    whisper_threads: int = 0  # CPU threads; 0 = auto (min(cores, 16)). Big speed lever.
     # "xtts" = one neural voice for every language (needs the `xtts` extra);
     # "kokoro" = fast native per-language voices; "say" = robotic macOS fallback.
     tts_engine: str = "xtts"

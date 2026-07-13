@@ -30,14 +30,19 @@ max_tokens = 2048
 system_prompt = "assistant"
 
 # --- Voice mode (uv run ibeto --voice) ---
-# Whisper model size for speech-to-text: base | small | medium | large-v3
-# Larger = more accurate, slower, bigger download. 'base' is a good start.
-whisper_model = "base"
+# Whisper model for speech-to-text: base | small | medium | large-v3-turbo | large-v3
+# large-v3-turbo is multilingual and accurate (~2.5s/utterance with enough CPU
+# threads); "medium" is faster but misdetects some languages; "base" is fastest
+# but only reliable for English. Downloaded once (~1.6 GB for turbo).
+whisper_model = "large-v3-turbo"
 
-# Force the spoken language so short/noisy audio isn't misdetected (e.g.
-# English heard as Japanese). Use an ISO code like "en", "es", "de", "ja".
-# Set to "" to auto-detect (less reliable on the 'base' model).
-stt_language = "en"
+# Spoken language. "" = auto-detect (reliable on large-v3-turbo, so you can just
+# speak any language). Force a code ("en", "es", "de", "ja", ...) to lock it.
+stt_language = ""
+
+# CPU threads for transcription (no Metal backend, so this is the speed lever).
+# 0 = auto (min(cores, 16)). On the M3 Ultra this is ~2.5s vs ~8s single-threaded.
+whisper_threads = 0
 
 # Text-to-speech engine:
 #   "xtts"   = ONE natural neural voice for every language (en/de/fr/es/it/pt/

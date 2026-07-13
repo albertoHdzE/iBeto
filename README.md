@@ -126,10 +126,12 @@ Limit: a foreign phrase *glued* into an English clause with no punctuation (e.g.
 same-alphabet languages at the word level is a detection limit, not an engine
 one. Full foreign sentences and comma/quote-set-off phrases route correctly.
 
-Speech is transcribed as English by default (`stt_language = "en"`). Auto-detect
-on the small `base` model is unreliable and can mishear English as another
-language — set `stt_language` in `configs/ibeto.toml` (`"es"`, `"de"`, `"ja"`,
-…) to practice another language, or `""` to auto-detect.
+**Speech input is multilingual too.** By default Whisper `large-v3-turbo`
+**auto-detects** the spoken language (`stt_language = ""`), so you can just speak
+English, French, Japanese, Spanish, etc. and be understood — no need to pre-set a
+language. It's CPU-bound (no Metal), so it uses many cores (`whisper_threads`):
+~2.5 s per utterance on the M3 Ultra. For faster-but-English-only turn-taking,
+set `whisper_model = "base"` and `stt_language = "en"`.
 
 ### Vision
 
