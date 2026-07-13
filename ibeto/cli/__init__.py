@@ -291,7 +291,8 @@ def run_voice(stats: bool = False, resume: bool = False, think: bool | None = No
     stt = WhisperSTT(cfg.whisper_model, cfg.stt_language)
     tts = make_tts(cfg)
     # Show the engine actually built, not the config (make_tts may fall back).
-    print(f"Voice: {type(tts).__name__} · default {cfg.tts_voice}", flush=True)
+    voice_desc = getattr(tts, "speaker", None) or cfg.tts_voice
+    print(f"Voice: {type(tts).__name__} · {voice_desc}", flush=True)
     speaker = SentenceSpeaker(tts)  # speaks each sentence as the reply streams
     say = tts.speak  # one-shot utterances (control acks)
     _startup_banner(cfg, backend, resume, history)

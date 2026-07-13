@@ -402,6 +402,14 @@ class XttsTTS:
             print(f"\n(XTTS '{lang}' skipped: {exc})", flush=True)
             return None
 
+    def speak(self, text: str) -> None:
+        """One-shot speak for control acks (short English messages)."""
+        audio = self.synth_lang(text, "en")
+        if audio is not None:
+            import sounddevice as sd
+            sd.play(audio[0], audio[1])
+            sd.wait()
+
     def close(self) -> None:
         try:
             self._proc.stdin.close()
