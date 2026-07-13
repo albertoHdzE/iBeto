@@ -347,7 +347,7 @@ class XttsTTS:
     (ibeto/audio/xtts_worker.py) and talks to it over stdio, so its numpy<2
     dependency never collides with the app's numpy>=2."""
 
-    def __init__(self, speaker: str = "Claribel Dervla", ready_timeout: float = 300.0):
+    def __init__(self, speaker: str = "Claribel Dervla", ready_timeout: float = 900.0):
         import time
         self.speaker = speaker
         worker = Path(__file__).with_name("xtts_worker.py")
@@ -355,8 +355,15 @@ class XttsTTS:
         for dep in _XTTS_DEPS:
             cmd += ["--with", dep]
         cmd += ["python", str(worker)]
-        print("Loading XTTS-v2 (one voice, all languages; first launch can take "
-              "a minute to build its env + ~17s to load)...", flush=True)
+        # Smart, self-configuring: the first launch builds the isolated env and
+        # downloads the model (once); later launches just load it (~15s).
+        flag = Path.home() / ".cache" / "ibeto" / ".xtts_ready"
+        if flag.exists():
+            print("Loading the voice (~15s)...", flush=True)
+        else:
+            print("First-time voice setup: building the voice engine and "
+                  "downloading the model (~1.8 GB). This happens ONCE and may take "
+                  "a few minutes; later launches take ~15s...", flush=True)
         self._proc = subprocess.Popen(
             cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL, text=True, bufsize=1)
@@ -369,6 +376,8 @@ class XttsTTS:
                 break
             if time.time() > deadline:
                 raise RuntimeError("XTTS worker timed out while loading")
+        flag.parent.mkdir(parents=True, exist_ok=True)
+        flag.touch()  # mark ready so next launch shows the fast-load message
 
     def synth_lang(self, text: str, lang: str):
         if not text.strip():

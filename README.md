@@ -106,9 +106,10 @@ The voice engine is set by `tts_engine` in `configs/ibeto.toml`:
 - **`xtts` (default)** — one natural neural voice (XTTS-v2) for **every** language
   (en/de/fr/es/it/pt/ja/zh/ar): the same speaker throughout, most consistent. It
   runs in an isolated `uv run --no-project` worker (`ibeto/audio/xtts_worker.py`)
-  because coqui-tts pins `numpy<2` while the app needs `numpy>=2`. `setup.sh`
-  pre-builds it (torch + ~1.8 GB model); first voice load is ~17 s. Pick the
-  speaker with `tts_xtts_speaker`.
+  because coqui-tts pins `numpy<2` while the app needs `numpy>=2`. It is
+  **self-configuring**: the first `ibeto --voice` builds that env and downloads
+  the ~1.8 GB model once (a few minutes), and later launches load it in ~15 s —
+  no setup step needed. Pick the speaker with `tts_xtts_speaker`.
 - **`kokoro`** — fast native per-language voices (~0.15 RTF, no torch), a
   *different* voice per language. Snappier turn-taking; set this if XTTS feels slow.
 - **`say`** — robotic macOS voice, zero deps (last resort).
