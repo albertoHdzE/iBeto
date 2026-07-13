@@ -212,18 +212,44 @@ def test_runon_without_boundary_flushes_at_length_cap():
     assert "".join(spoken) == "a" * (_MAX_LATIN + 20)
 
 
-def test_resolve_stt_lang_aliases():
-    from ibeto.cli import _resolve_stt_lang
+def test_parse_lang_spec():
+    from ibeto.cli import _parse_lang_spec
 
-    assert _resolve_stt_lang(None, "en") == "en"   # no flag -> config default
-    assert _resolve_stt_lang(None, "") == ""
-    assert _resolve_stt_lang("all", "en") == ""    # 'all'/'auto' -> auto-detect
-    assert _resolve_stt_lang("auto", "en") == ""
-    assert _resolve_stt_lang("german", "") == "de"
-    assert _resolve_stt_lang("ge", "") == "de"
-    assert _resolve_stt_lang("FR", "") == "fr"     # case-insensitive
-    assert _resolve_stt_lang("ja", "") == "ja"
-    assert _resolve_stt_lang("xx", "") == "xx"     # unknown code passes through
+    assert _parse_lang_spec("all") == ("", None)     # auto-detect
+    assert _parse_lang_spec("auto") == ("", None)
+    assert _parse_lang_spec("de") == ("de", None)
+    assert _parse_lang_spec("german") == ("de", None)
+    assert _parse_lang_spec("ge") == ("de", None)
+    assert _parse_lang_spec("FR") == ("fr", None)    # case-insensitive
+    assert _parse_lang_spec("fr1") == ("fr", 1)      # language + level
+    assert _parse_lang_spec("ja2") == ("ja", 2)
+    assert _parse_lang_spec("xx") == ("xx", None)    # unknown passes through
+
+
+def test_voice_command_switches_language_and_immersion():
+    from ibeto.cli import _handle_voice_command
+
+    class FakeSTT:
+        language = "X"
+
+    class FakeSession:
+        def __init__(self):
+            self.messages = [{"role": "system", "content": "BASE"}]
+
+    stt, sess = FakeSTT(), FakeSession()
+
+    msg = _handle_voice_command("/de2", stt, sess, "BASE")
+    assert stt.language == "de"
+    assert "German" in msg
+    assert "IMMERSION" in sess.messages[0]["content"]
+    assert "intermediate" in sess.messages[0]["content"]
+
+    _handle_voice_command("/all", stt, sess, "BASE")
+    assert stt.language == ""
+    assert sess.messages[0]["content"] == "BASE"   # immersion directive removed
+
+    assert "/help" in _handle_voice_command("/help", stt, sess, "BASE")
+    assert _handle_voice_command("/model gemma", stt, sess, "BASE") is None  # falls through
 
 
 def test_route_text_by_script_and_language():

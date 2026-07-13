@@ -11,6 +11,7 @@ In voice mode you can also TYPE any of these at the "[Enter to speak]" prompt
 """
 
 import argparse
+import re
 import sys
 import time
 
@@ -290,11 +291,78 @@ _LANG_ALIASES = {
 }
 
 
-def _resolve_stt_lang(flag: str | None, cfg_default: str) -> str:
-    """Turn a --lang flag into a Whisper code ("" = auto). Falls back to config."""
-    if flag is None:
-        return cfg_default
-    return _LANG_ALIASES.get(flag.strip().lower(), flag.strip().lower())
+# Human-readable language names for immersion prompts/acks.
+_LANG_NAMES = {
+    "en": "English", "de": "German (Deutsch)", "fr": "French (Français)",
+    "es": "Spanish (Español)", "it": "Italian (Italiano)", "pt": "Portuguese",
+    "ja": "Japanese (日本語)", "zh": "Chinese (中文)", "ar": "Arabic (العربية)",
+}
+_LEVELS = {
+    1: "at a beginner level, using very simple words and short, slow sentences",
+    2: "at an intermediate level, using common everyday vocabulary",
+    3: "at an advanced level, using natural, rich language",
+}
+
+
+def _parse_lang_spec(spec: str) -> tuple[str, int | None]:
+    """Parse a language spec like 'fr', 'german', 'ja2', 'all' -> (code, level).
+
+    code is a Whisper language code, "" for auto-detect. level is 1-3 or None.
+    """
+    m = re.match(r"^([a-z]+)([1-3])?$", spec.strip().lower())
+    if not m:
+        return spec.strip().lower(), None
+    word, lvl = m.group(1), m.group(2)
+    return _LANG_ALIASES.get(word, word), (int(lvl) if lvl else None)
+
+
+def _mode_directive(code: str, level: int | None) -> str:
+    """System-prompt addition for immersion mode ("" when off/auto)."""
+    if not code or code not in _LANG_NAMES:
+        return ""
+    name = _LANG_NAMES[code]
+    tail = f" Speak {_LEVELS[level]}." if level in _LEVELS else ""
+    return (f"\n\nIMMERSION MODE: The user is practicing {name}. Reply ONLY in "
+            f"{name}, even for short remarks.{tail} Keep the conversation going "
+            "warmly and help them practice.")
+
+
+def _apply_mode(session, base_prompt: str, code: str, level: int | None) -> None:
+    session.messages[0]["content"] = base_prompt + _mode_directive(code, level)
+
+
+def _help_text() -> str:
+    return (
+        "Commands (type these at the prompt):\n"
+        "  /help                 show this help\n"
+        "  /all                  auto-detect: speak any language (default)\n"
+        "  /de /fr /es /it /pt /ja /zh /ar /en   immersion: lock to that language\n"
+        "  /fr2  (fr1..fr3)      immersion + level: 1 beginner, 2 intermediate, 3 advanced\n"
+        "  /think on|off         reasoning mode\n"
+        "  /look [question]      use the camera\n"
+        "  /model [name]         list or switch the LLM\n"
+        "  exit                  quit\n"
+        "Press Enter (empty) to record your voice; Up-arrow recalls past typed lines;\n"
+        "scroll up to re-read earlier messages."
+    )
+
+
+def _handle_voice_command(typed: str, stt, session, base_prompt: str) -> str | None:
+    """Handle voice-only commands (/help, /all, /<lang>[level]). None = not one."""
+    cmd = typed[1:].split()[0].lower()
+    if cmd == "help":
+        return _help_text()
+    code, level = _parse_lang_spec(cmd)
+    if cmd in ("all", "auto") or code in _LANG_NAMES:
+        stt.language = code
+        _apply_mode(session, base_prompt, code, level)
+        if not code:
+            return "Auto-detect on: speak any language and I'll follow you."
+        lvl = {1: " · beginner", 2: " · intermediate", 3: " · advanced"}.get(level, "")
+        name = _LANG_NAMES[code]
+        return (f"Immersion: {name}{lvl}. Speak {name}; I'll reply in {name}. "
+                "Type /all to switch back.")
+    return None
 
 
 def run_voice(stats: bool = False, resume: bool = False, think: bool | None = None,
@@ -311,7 +379,12 @@ def run_voice(stats: bool = False, resume: bool = False, think: bool | None = No
 
     print("iBeto v0.1 — voice mode")
     _ensure_model_loaded(cfg, backend)
-    stt_lang = _resolve_stt_lang(lang, cfg.stt_language)
+    base_prompt = load_prompt(cfg.system_prompt)
+    if lang is not None:
+        stt_lang, level = _parse_lang_spec(lang)
+    else:
+        stt_lang, level = cfg.stt_language, None
+    _apply_mode(session, base_prompt, stt_lang, level)  # immersion if a language given
     listening = f"'{stt_lang}' (locked)" if stt_lang else "auto-detect (any language)"
     print(f"Loading Whisper ({cfg.whisper_model}) · listening: {listening}...", flush=True)
     stt = WhisperSTT(cfg.whisper_model, stt_lang, cfg.whisper_threads)
@@ -324,9 +397,8 @@ def run_voice(stats: bool = False, resume: bool = False, think: bool | None = No
     _startup_banner(cfg, backend, resume, history)
     print(
         "Press Enter to speak, Enter again to stop. Ctrl-C stops the reply;\n"
-        "Ctrl-C again at the prompt quits.\n"
-        'Say "look at this" / "think harder", or TYPE a command (/model, /think,\n'
-        "/look) or a message at the prompt instead of speaking.\n"
+        "Ctrl-C again at the prompt quits. Type /help for commands.\n"
+        "/de /fr /ja ... start an immersive session in that language; /all resets.\n"
     )
 
     try:
@@ -340,6 +412,11 @@ def run_voice(stats: bool = False, resume: bool = False, think: bool | None = No
             spoken = False
             if typed:
                 if typed.startswith("/") or typed.lower() in EXIT_WORDS:
+                    if typed.startswith("/"):
+                        vc = _handle_voice_command(typed, stt, session, base_prompt)
+                        if vc is not None:
+                            print(vc, "\n")
+                            continue
                     status = _handle_slash(typed, backend, session, cfg, stats, speak=say)
                     if status == "exit":
                         print("Bye.")
@@ -347,7 +424,7 @@ def run_voice(stats: bool = False, resume: bool = False, think: bool | None = No
                     if status == "fatal":
                         return 1
                     if status == "notcmd":
-                        print("Unknown command. Try /look, /think, /model, or exit.")
+                        print("Unknown command. Type /help for the list.")
                     print()
                     continue
                 user_text = typed  # typed message instead of speaking
@@ -419,9 +496,9 @@ def main() -> None:
         "-l",
         default=None,
         metavar="CODE",
-        help="Lock the spoken language for this session (e.g. de, fr, es, ja) to "
-        "avoid misdetection while practicing one language. 'all' = auto-detect "
-        "the mix (default). Overrides stt_language in the config.",
+        help="Start locked to a language (e.g. de, fr, ja), optionally with a "
+        "level (fr1=beginner .. fr3=advanced) for immersion. 'all' = auto-detect "
+        "the mix (default). Switch any time in-session with /de, /all, etc.",
     )
     args = parser.parse_args()
     entry = run_voice if args.voice else run
