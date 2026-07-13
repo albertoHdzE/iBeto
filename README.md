@@ -58,6 +58,7 @@ Two ways to talk to iBeto, and they take commands differently:
 |------|--------|
 | _(none)_ | Text chat |
 | `--voice` | Push-to-talk voice: speech in, spoken reply out |
+| `--lang CODE` / `-l` | Lock the spoken language for a focused practice session (e.g. `-l de`, `-l french`, `-l ja`); `all` = auto-detect the mix (default). Reduces short-phrase misdetection. |
 | `--resume` | Continue the previous conversation |
 | `--think` | Start with reasoning mode on (default off) |
 | `--stats` | Show latency (TTFT) and tokens/sec after each reply |

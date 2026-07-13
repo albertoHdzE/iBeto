@@ -226,7 +226,8 @@ def _startup_banner(cfg, backend, resume, history, extra: str = "") -> None:
         print(extra)
 
 
-def run(stats: bool = False, resume: bool = False, think: bool | None = None) -> int:
+def run(stats: bool = False, resume: bool = False, think: bool | None = None,
+        lang: str | None = None) -> int:  # lang applies to voice STT only
     cfg = load_config()
     backend, session, history = _build_session(cfg, resume)
     if think is not None:
@@ -274,7 +275,30 @@ def _voice_control(text: str, backend) -> str | None:
     return None
 
 
-def run_voice(stats: bool = False, resume: bool = False, think: bool | None = None) -> int:
+# Forgiving language aliases for --lang (e.g. "german", "ge" -> "de").
+_LANG_ALIASES = {
+    "all": "", "auto": "", "mix": "",
+    "en": "en", "eng": "en", "english": "en",
+    "de": "de", "ge": "de", "ger": "de", "german": "de", "deutsch": "de",
+    "fr": "fr", "fre": "fr", "french": "fr", "francais": "fr",
+    "es": "es", "sp": "es", "spa": "es", "spanish": "es", "espanol": "es",
+    "it": "it", "ita": "it", "italian": "it", "italiano": "it",
+    "pt": "pt", "por": "pt", "portuguese": "pt", "portugues": "pt",
+    "ja": "ja", "jp": "ja", "jpn": "ja", "japanese": "ja",
+    "zh": "zh", "cn": "zh", "chinese": "zh", "mandarin": "zh",
+    "ar": "ar", "arabic": "ar",
+}
+
+
+def _resolve_stt_lang(flag: str | None, cfg_default: str) -> str:
+    """Turn a --lang flag into a Whisper code ("" = auto). Falls back to config."""
+    if flag is None:
+        return cfg_default
+    return _LANG_ALIASES.get(flag.strip().lower(), flag.strip().lower())
+
+
+def run_voice(stats: bool = False, resume: bool = False, think: bool | None = None,
+              lang: str | None = None) -> int:
     cfg = load_config()
     backend, session, history = _build_session(cfg, resume)
     if think is not None:
@@ -287,8 +311,10 @@ def run_voice(stats: bool = False, resume: bool = False, think: bool | None = No
 
     print("iBeto v0.1 — voice mode")
     _ensure_model_loaded(cfg, backend)
-    print(f"Loading Whisper ({cfg.whisper_model})...", flush=True)
-    stt = WhisperSTT(cfg.whisper_model, cfg.stt_language, cfg.whisper_threads)
+    stt_lang = _resolve_stt_lang(lang, cfg.stt_language)
+    listening = f"'{stt_lang}' (locked)" if stt_lang else "auto-detect (any language)"
+    print(f"Loading Whisper ({cfg.whisper_model}) · listening: {listening}...", flush=True)
+    stt = WhisperSTT(cfg.whisper_model, stt_lang, cfg.whisper_threads)
     tts = make_tts(cfg)
     # Show the engine actually built, not the config (make_tts may fall back).
     voice_desc = getattr(tts, "speaker", None) or cfg.tts_voice
@@ -388,7 +414,16 @@ def main() -> None:
         action="store_true",
         help="Continue the previous conversation from the saved history file.",
     )
+    parser.add_argument(
+        "--lang",
+        "-l",
+        default=None,
+        metavar="CODE",
+        help="Lock the spoken language for this session (e.g. de, fr, es, ja) to "
+        "avoid misdetection while practicing one language. 'all' = auto-detect "
+        "the mix (default). Overrides stt_language in the config.",
+    )
     args = parser.parse_args()
     entry = run_voice if args.voice else run
     think = True if args.think else None
-    sys.exit(entry(stats=args.stats, resume=args.resume, think=think))
+    sys.exit(entry(stats=args.stats, resume=args.resume, think=think, lang=args.lang))

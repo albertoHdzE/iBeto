@@ -212,6 +212,20 @@ def test_runon_without_boundary_flushes_at_length_cap():
     assert "".join(spoken) == "a" * (_MAX_LATIN + 20)
 
 
+def test_resolve_stt_lang_aliases():
+    from ibeto.cli import _resolve_stt_lang
+
+    assert _resolve_stt_lang(None, "en") == "en"   # no flag -> config default
+    assert _resolve_stt_lang(None, "") == ""
+    assert _resolve_stt_lang("all", "en") == ""    # 'all'/'auto' -> auto-detect
+    assert _resolve_stt_lang("auto", "en") == ""
+    assert _resolve_stt_lang("german", "") == "de"
+    assert _resolve_stt_lang("ge", "") == "de"
+    assert _resolve_stt_lang("FR", "") == "fr"     # case-insensitive
+    assert _resolve_stt_lang("ja", "") == "ja"
+    assert _resolve_stt_lang("xx", "") == "xx"     # unknown code passes through
+
+
 def test_route_text_by_script_and_language():
     from ibeto.audio.tts import route_text
 
