@@ -71,7 +71,7 @@ Flags combine, e.g. `ibeto --voice --resume`.
 |------|------------------|------------------|
 | Show commands | `/help` | (type it) |
 | Immersion in a language | — | `/de` `/fr` `/ja` … (lock STT + reply in that language) |
-| Immersion + level | — | `/fr1`–`/fr3` (1 beginner, 3 advanced) |
+| Immersion + level | — | any language + `1`/`2`/`3`, e.g. `/de1` `/ja2` `/ar3` (1 beginner → 3 advanced) |
 | Back to mixed / auto | — | `/all` |
 | Reasoning on | `/think on` (or `/think` to toggle) | "think harder" |
 | Reasoning off | `/think off` | "stop thinking" |
@@ -89,8 +89,10 @@ ask *"how do you say I'm hungry in German?"* — it teaches you, in native scrip
 spoken. Then type `/de` to lock into an immersive German conversation (it replies
 only in German); scroll up to re-read how to say things. Stuck? Type `/all` and
 ask *"what does that mean?"* in English, then `/de` again to continue. Add a
-level for graded difficulty: `ibeto --voice -l fr1` (or `/fr1` mid-session) for
-easy French. Up-arrow recalls past lines; the terminal keeps the whole session.
+level for graded difficulty in **any** language: `-l ja1`, `/de2`, `/ar3`, … (1
+beginner → 3 advanced). It's a soft guide, not a strict curriculum, so you can
+jump levels freely mid-practice. Up-arrow recalls past lines; the terminal keeps
+the whole session.
 
 ### Switching models
 
