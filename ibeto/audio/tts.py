@@ -149,6 +149,10 @@ def _latin_detector():
                      "es": "SPANISH", "it": "ITALIAN", "pt": "PORTUGUESE"}
             langs = [getattr(Language, names[c]) for c in _LATIN_LANGS]
             _detector = (LanguageDetectorBuilder.from_languages(*langs)
+                         # Bias toward English (the base language): if the top two
+                         # candidates are close, treat as ambiguous -> None -> English.
+                         # Stops cognates ("final", "no", "natural") sounding Spanish.
+                         .with_minimum_relative_distance(0.20)
                          .with_preloaded_language_models().build())
             _lang_codes.update({getattr(Language, names[c]): c for c in _LATIN_LANGS})
         except Exception:
