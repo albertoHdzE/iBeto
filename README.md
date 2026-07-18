@@ -136,6 +136,12 @@ resampled to one 24 kHz stream so switching languages mid-reply is seamless.
 Under `kokoro` the routing uses per-language voices (`tts_voice`,
 `tts_voice_es/fr/it/pt/zh/de/ar/ja`); under `xtts` the same voice speaks them all.
 
+**Pronunciation guides are shown, not spoken.** When teaching, iBeto may add a
+romanization in parentheses after the native script — こんにちは (konnichiwa) — so
+you can read the pronunciation. That parenthetical is printed but dropped from
+speech, so you hear the native text once (in the right voice), never a romanized
+echo.
+
 Limit: a foreign phrase *glued* into an English clause with no punctuation (e.g.
 "you say Ich liebe dich") is voiced in the dominant language — telling apart
 same-alphabet languages at the word level is a detection limit, not an engine

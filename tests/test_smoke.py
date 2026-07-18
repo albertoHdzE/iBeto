@@ -136,6 +136,18 @@ def test_sentence_speaker_drops_symbol_only_chunks():
     assert spoken == ["Bold.", "Plain text."]
 
 
+def test_strip_pronunciation_drops_romaji_from_speech_only():
+    from ibeto.audio.tts import strip_pronunciation
+
+    # Romanization in parens right after native script -> dropped (not spoken)
+    assert strip_pronunciation("こんにちは (konnichiwa)") == "こんにちは"
+    assert strip_pronunciation("You say おはよう (ohayou) to greet") == "You say おはよう to greet"
+    assert strip_pronunciation("元気ですか？ (genki desu ka)") == "元気ですか？"
+    assert strip_pronunciation("مرحبا (marhaban)") == "مرحبا"
+    # A normal English parenthetical (not after native script) is kept
+    assert strip_pronunciation("the food (very tasty)") == "the food (very tasty)"
+
+
 def test_detect_lang_routes_by_script():
     from ibeto.audio.tts import detect_lang
 

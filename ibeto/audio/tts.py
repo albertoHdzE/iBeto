@@ -75,6 +75,21 @@ def clean_for_speech(text: str) -> str:
     return re.sub(r"[ \t]+", " ", t).strip()
 
 
+# A romanization in parentheses right after native script — おはよう (ohayou) — is
+# a reading aid shown on screen, not meant to be spoken (it would be read aloud in
+# the wrong voice, right after the native text). Drop it from the SPOKEN text only.
+_NATIVE_RANGES = "぀-ヿ㐀-鿿؀-ۿ＀-￯"  # kana/han/arabic/fullwidth
+_READING_AID = re.compile(rf"([{_NATIVE_RANGES}])\s*\([^()]*\)")
+
+
+def strip_pronunciation(text: str) -> str:
+    prev = None
+    while prev != text:
+        prev = text
+        text = _READING_AID.sub(r"\1", text)
+    return text
+
+
 # --- language routing -------------------------------------------------------
 
 def detect_lang(text: str) -> str:
@@ -619,7 +634,7 @@ class SentenceSpeaker:
                 end = _safe_cut(self._buf, cap)
             else:
                 return
-            seg = clean_for_speech(self._buf[:end])
+            seg = strip_pronunciation(clean_for_speech(self._buf[:end]))
             self._buf = self._buf[end:]
             for lang, chunk in route_text(seg):
                 if chunk.strip():
@@ -627,7 +642,7 @@ class SentenceSpeaker:
 
     def finish(self) -> None:
         """Flush the trailing sentence and block until playback drains."""
-        tail = clean_for_speech(self._buf)
+        tail = strip_pronunciation(clean_for_speech(self._buf))
         self._buf = ""
         for lang, chunk in route_text(tail):
             if chunk.strip():
