@@ -374,7 +374,7 @@ def run_voice(stats: bool = False, resume: bool = False, think: bool | None = No
         backend.enable_thinking = think
 
     # Import audio deps lazily so text mode never loads them.
-    from ibeto.audio.mic import record_until_enter
+    from ibeto.audio.mic import NoInputDevice, has_input_device, record_until_enter
     from ibeto.audio.stt import WhisperSTT
     from ibeto.audio.tts import SentenceSpeaker, make_tts
 
@@ -396,6 +396,12 @@ def run_voice(stats: bool = False, resume: bool = False, think: bool | None = No
     speaker = SentenceSpeaker(tts)  # speaks each sentence as the reply streams
     say = tts.speak  # one-shot utterances (control acks)
     _startup_banner(cfg, backend, resume, history)
+    mic_ok = has_input_device()
+    if not mic_ok:
+        print(
+            "⚠ No microphone detected — speech input is disabled. "
+            "You can still type your messages below.\n"
+        )
     print(
         "Press Enter to speak, Enter again to stop. Ctrl-C stops the reply;\n"
         "Ctrl-C again at the prompt quits. Type /help for commands.\n"
@@ -430,8 +436,16 @@ def run_voice(stats: bool = False, resume: bool = False, think: bool | None = No
                     continue
                 user_text = typed  # typed message instead of speaking
             else:
+                if not mic_ok:
+                    print("No microphone — type your message instead.\n")
+                    continue
                 print("Recording... press Enter to stop.", flush=True)
-                audio = record_until_enter(cfg.sample_rate)
+                try:
+                    audio = record_until_enter(cfg.sample_rate)
+                except NoInputDevice as exc:
+                    mic_ok = False
+                    print(f"{exc}\nType your message instead.\n")
+                    continue
                 if audio.size == 0:
                     continue
                 print("Transcribing...", flush=True)
