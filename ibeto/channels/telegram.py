@@ -154,11 +154,34 @@ class TelegramChannel:
         await self._respond(update, user, text)
 
 
+def _load_dotenv() -> None:
+    """Load KEY=VALUE lines from a project .env into the environment (no dep)."""
+    from pathlib import Path
+
+    for base in (Path.cwd(), Path(__file__).resolve().parents[2]):
+        env = base / ".env"
+        if not env.exists():
+            continue
+        for line in env.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, val = line.split("=", 1)
+            os.environ.setdefault(key.strip(), val.strip().strip('"').strip("'"))
+        return
+
+
 def run() -> int:
+    _load_dotenv()
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     if not token:
         print("Set TELEGRAM_BOT_TOKEN (from @BotFather). See ibeto/channels/telegram.py.")
         return 1
+    if ":" not in token or not token.split(":", 1)[0].isdigit():
+        print("TELEGRAM_BOT_TOKEN looks incomplete. Use the FULL token from "
+              "@BotFather — like 123456789:AA... (digits and colon before the hash).")
+        return 1
+    from telegram.error import InvalidToken
     from telegram.ext import Application, MessageHandler, filters
 
     channel = TelegramChannel()
@@ -169,5 +192,10 @@ def run() -> int:
     allow = _allowed_ids()
     print(f"iBeto Telegram bot running (allowlist: {allow or 'ANYONE — set IBETO_TG_ALLOW'}).")
     print("Message your bot on Telegram. Ctrl-C to stop.")
-    app.run_polling()
+    try:
+        app.run_polling()
+    except InvalidToken:
+        print("Telegram rejected the token. Copy the full, current token from "
+              "@BotFather (or /revoke to get a fresh one).")
+        return 1
     return 0
