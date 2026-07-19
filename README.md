@@ -204,15 +204,23 @@ Mac polls Telegram's cloud and nothing is exposed to the internet (no port
 forwarding, no public server). Send **text or voice notes** and get text + a
 spoken voice-note reply; the `/de` `/all` immersion and level commands work too.
 
-Setup:
+One-time setup (then it's a single command forever):
 1. In Telegram, message **@BotFather** → `/newbot` → get the **token**.
 2. Message **@userinfobot** to get your numeric **user id** (allowlist).
-3. On the Mac:
+3. Put both in a `.env` file in the project root (auto-loaded, git-ignored):
    ```
-   export TELEGRAM_BOT_TOKEN='…token…'
-   export IBETO_TG_ALLOW='your-id'    # only you can use the bot
-   ibeto --telegram
+   TELEGRAM_BOT_TOKEN=123456789:AA…the-full-token…
+   IBETO_TG_ALLOW=your-id       # only you can use the bot
    ```
+
+After that, running the bot is just:
+```bash
+ibeto --telegram
+```
+No exports, no flags, no configuration — the Mac Studio loads the model + voice
+once (~40 s) and then sits polling Telegram, ready for your phone. This is the
+counterpart to `ibeto --voice`, which talks to you locally with the iPhone as the
+mic over Continuity; `--telegram` reaches the same brain from your phone anywhere.
 
 Note: this crosses the local-first line at the *transport* — messages pass
 through Telegram's servers (the LLM/STT/TTS stay on your Mac). For fully private
