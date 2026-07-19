@@ -76,6 +76,9 @@ class TelegramChannel:
         print(f"Loading Whisper ({self.cfg.whisper_model})...", flush=True)
         self.stt = WhisperSTT(self.cfg.whisper_model, self.cfg.stt_language,
                               self.cfg.whisper_threads)
+        # Same engine as the terminal (XTTS by default): one voice across every
+        # language, spawned once at startup. The worker load blocks here until it
+        # signals READY, so once the bot reports "running" the voice is live.
         self.tts = make_tts(self.cfg)
         self.users: dict[int, _UserState] = {}
 
@@ -190,8 +193,9 @@ def run() -> int:
     app.add_handler(MessageHandler(filters.VOICE, channel.on_voice))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, channel.on_text))
     allow = _allowed_ids()
-    print(f"iBeto Telegram bot running (allowlist: {allow or 'ANYONE — set IBETO_TG_ALLOW'}).")
-    print("Message your bot on Telegram. Ctrl-C to stop.")
+    print(f"iBeto Telegram bot running (allowlist: {allow or 'ANYONE — set IBETO_TG_ALLOW'}).",
+          flush=True)
+    print("Message your bot on Telegram. Ctrl-C to stop.", flush=True)
     try:
         app.run_polling()
     except InvalidToken:

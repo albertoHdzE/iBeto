@@ -22,9 +22,16 @@ os.environ.setdefault("COQUI_TOS_AGREED", "1")
 
 def main() -> None:
     import numpy as np
+
+    # Keep the stdout pipe clean for the protocol: coqui/torch print a flood
+    # during import + model load, which can fill the pipe and deadlock the parent
+    # (waiting for "READY"). Route that noise to stderr (the parent discards it).
+    real_stdout = sys.stdout
+    sys.stdout = sys.stderr
     from TTS.api import TTS
 
     model = TTS("tts_models/multilingual/multi-dataset/xtts_v2")
+    sys.stdout = real_stdout
     print("READY", flush=True)
 
     for line in sys.stdin:
