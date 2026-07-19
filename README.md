@@ -196,6 +196,28 @@ Assistant > Hello Alberto! How can I help today?
 
 Type `exit` or press Ctrl-D to quit.
 
+## Talk to iBeto from your phone (Telegram)
+
+`ibeto --telegram` runs iBeto as a Telegram bot — the same brain (LLM, Whisper,
+neural TTS), reachable from your phone anywhere. It uses **long-polling**, so your
+Mac polls Telegram's cloud and nothing is exposed to the internet (no port
+forwarding, no public server). Send **text or voice notes** and get text + a
+spoken voice-note reply; the `/de` `/all` immersion and level commands work too.
+
+Setup:
+1. In Telegram, message **@BotFather** → `/newbot` → get the **token**.
+2. Message **@userinfobot** to get your numeric **user id** (allowlist).
+3. On the Mac:
+   ```
+   export TELEGRAM_BOT_TOKEN='…token…'
+   export IBETO_TG_ALLOW='your-id'    # only you can use the bot
+   ibeto --telegram
+   ```
+
+Note: this crosses the local-first line at the *transport* — messages pass
+through Telegram's servers (the LLM/STT/TTS stay on your Mac). For fully private
+remote access, use a VPN (e.g. Tailscale) to your Mac instead.
+
 ## Configuration
 
 Everything tunable lives in `configs/ibeto.toml` — change the model there, not

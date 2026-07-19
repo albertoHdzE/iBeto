@@ -492,6 +492,11 @@ def main() -> None:
         help="Voice mode: push-to-talk speech in, spoken reply out.",
     )
     parser.add_argument(
+        "--telegram",
+        action="store_true",
+        help="Run as a Telegram bot (text + voice notes from your phone).",
+    )
+    parser.add_argument(
         "--think",
         action="store_true",
         help="Start with reasoning mode on (default off for fast replies).",
@@ -516,6 +521,10 @@ def main() -> None:
         "the mix (default). Switch any time in-session with /de, /all, etc.",
     )
     args = parser.parse_args()
+    if args.telegram:
+        from ibeto.channels.telegram import run as run_telegram
+
+        sys.exit(run_telegram())
     entry = run_voice if args.voice else run
     think = True if args.think else None
     sys.exit(entry(stats=args.stats, resume=args.resume, think=think, lang=args.lang))

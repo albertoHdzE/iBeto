@@ -19,7 +19,12 @@ class WhisperSTT:
         # can just speak any language). A fixed code ("en", "ja", ...) forces it.
         self.language = language
 
-    def transcribe(self, audio: "np.ndarray | str") -> str:
-        """Transcribe a 16 kHz mono float32 array (or an audio file path)."""
-        segments, _ = self.model.transcribe(audio, language=self.language or None)
+    def transcribe(self, audio: "np.ndarray | str", language: str | None = None) -> str:
+        """Transcribe a 16 kHz mono float32 array (or an audio file path).
+
+        `language` overrides the instance default for this call (None = use the
+        default; "" = auto-detect). Lets one shared model serve per-user locks.
+        """
+        lang = self.language if language is None else language
+        segments, _ = self.model.transcribe(audio, language=lang or None)
         return "".join(segment.text for segment in segments).strip()

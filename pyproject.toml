@@ -17,6 +17,7 @@ dependencies = [
     "kokoro-onnx>=0.4.0",  # neural streaming TTS (no torch); voice mode only
     "piper-tts>=1.2.0",  # neural TTS for languages Kokoro lacks (e.g. Arabic, German)
     "lingua-language-detector>=2.0.0",  # tell Latin languages apart (de/fr/es/it/pt/en)
+    "python-telegram-bot>=21.0",  # optional Telegram front-end (ibeto --telegram)
 ]
 
 # XTTS-v2 (tts_engine = "xtts") cannot share this env: coqui-tts pins numpy<2

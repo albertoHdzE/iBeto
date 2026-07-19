@@ -492,6 +492,23 @@ class MultilingualTTS:
         pass
 
 
+def render_reply(tts, text: str):
+    """Render a whole reply to one 24 kHz mono waveform (all languages), for
+    sending as a single voice note. Reuses the same routing as live speech
+    (markdown/emoji cleaned, romanization dropped, per-language synthesis).
+    Returns (float32 samples, 24000) or None if nothing to say."""
+    parts = []
+    for lang, chunk in route_text(strip_pronunciation(clean_for_speech(text))):
+        if not chunk.strip():
+            continue
+        audio = tts.synth_lang(chunk, lang)
+        if audio is not None:
+            parts.append(_resample(np.asarray(audio[0], dtype=np.float32), audio[1]))
+    if not parts:
+        return None
+    return np.concatenate(parts), _TARGET_SR
+
+
 def make_tts(cfg):
     """Build the TTS engine from config, falling back gracefully.
 
